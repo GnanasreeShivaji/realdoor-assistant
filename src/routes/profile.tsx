@@ -8,6 +8,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Pencil, FileText, Upload } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
+export const Route = createFileRoute("/profile")({
+  head: () => ({ meta: [{ title: "Applicant Profile · RealDoor" }, { name: "description", content: "Confirm extracted fields with source evidence before packet generation." }] }),
+  component: Profile,
+});
+
 type StoredFile = { name: string; size: number; fields: Record<string, string>; missing: string[] };
 
 function loadExtracted(hhId: string): StoredFile[] {
