@@ -1,0 +1,10 @@
+.env
+.streamlit/secrets.toml
+__pycache__/
+*.py[cod]
+.pytest_cache/
+data/realdoor.db
+data/runtime_uploads/
+data/generated_packets/
+.DS_Store
+

@@ -1,156 +1,88 @@
-"""Rulebook retrieval engine.
+"""Evidence-bound rule retrieval and transparent calculation helpers."""
 
-Answers ONLY from `data/rule_corpus.jsonl`. Never uses general knowledge.
-Two-stage: TF-IDF retrieval → optional GPT synthesis grounded in the retrieved
-rule texts. If retrieval confidence is low, we refuse to answer.
-"""
 from __future__ import annotations
 
 import json
-import math
-import os
 import re
-from collections import Counter
 from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
-RULES_PATH = Path(__file__).resolve().parent.parent / "data" / "rule_corpus.jsonl"
+import pandas as pd
 
-_STOP = set("a an and or of the to for in on with is are was were be been being this that these those "
-            "what which who when where why how do does did as at by from into per".split())
+from utils.models import RuleAnswer
+from utils.paths import MTSP_LIMITS, RULE_CORPUS
 
-_MIN_CONFIDENCE = 0.28
-
-
-def _tokenize(s: str) -> list[str]:
-    return [w for w in re.findall(r"[a-z0-9%$/\-]+", s.lower()) if w not in _STOP and len(w) > 1]
+ABSTENTION = "I cannot answer because this information is not available in the provided rule documents."
+DECISION_TERMS = ("eligible", "eligibility", "approve", "approved", "deny", "denied", "priority", "rank")
 
 
 @lru_cache(maxsize=1)
-def _corpus() -> list[dict]:
-    rules: list[dict] = []
-    with RULES_PATH.open() as f:
-        for line in f:
-            if line.strip():
-                rules.append(json.loads(line))
-    return rules
+def load_rules() -> list[dict[str, Any]]:
+    if not RULE_CORPUS.exists():
+        return []
+    return [json.loads(line) for line in RULE_CORPUS.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
-@lru_cache(maxsize=1)
-def _index():
-    rules = _corpus()
-    docs = [_tokenize(r["text"]) for r in rules]
-    df = Counter()
-    for d in docs:
-        for w in set(d):
-            df[w] += 1
-    N = len(docs)
-    idf = {w: math.log((N + 1) / (c + 1)) + 1.0 for w, c in df.items()}
-    vecs = []
-    for d in docs:
-        tf = Counter(d)
-        v = {w: (tf[w] / max(1, len(d))) * idf.get(w, 1.0) for w in tf}
-        norm = math.sqrt(sum(x * x for x in v.values())) or 1.0
-        vecs.append({w: x / norm for w, x in v.items()})
-    return rules, vecs, idf
+def _tokens(value: str) -> set[str]:
+    stop = {"the", "a", "an", "is", "are", "for", "of", "to", "and", "what", "how", "my", "do"}
+    return {token for token in re.findall(r"[a-z0-9]+", value.lower()) if len(token) > 2 and token not in stop}
 
 
-def _query_vec(q: str, idf: dict) -> dict:
-    toks = _tokenize(q)
-    tf = Counter(toks)
-    v = {w: (tf[w] / max(1, len(toks))) * idf.get(w, 1.0) for w in tf}
-    norm = math.sqrt(sum(x * x for x in v.values())) or 1.0
-    return {w: x / norm for w, x in v.items()}
-
-
-def _cos(a: dict, b: dict) -> float:
-    if len(a) > len(b): a, b = b, a
-    return sum(v * b.get(k, 0.0) for k, v in a.items())
-
-
-def retrieve(question: str, top_k: int = 3) -> list[dict[str, Any]]:
-    rules, vecs, idf = _index()
-    qv = _query_vec(question, idf)
-    scored = [(_cos(qv, vecs[i]), rules[i]) for i in range(len(rules))]
-    scored.sort(key=lambda x: x[0], reverse=True)
-    out = []
-    for s, r in scored[:top_k]:
-        out.append({**r, "score": round(float(s), 3)})
-    return out
-
-
-def _refusal() -> dict:
-    return {
-        "answer": "I cannot answer because this information is not available in the provided rule documents.",
-        "citations": [],
-        "confidence": 0.0,
-        "refused": True,
-    }
-
-
-def answer(question: str, use_gpt: bool | None = None) -> dict[str, Any]:
-    """Return {answer, citations:[{rule_id, effective_date, source_url, page, text}], confidence}."""
-    q = (question or "").strip()
-    if not q:
-        return _refusal()
-
-    hits = retrieve(q, top_k=3)
-    if not hits or hits[0]["score"] < _MIN_CONFIDENCE:
-        return _refusal()
-
-    citations = [
-        {
-            "rule_id": h["rule_id"],
-            "authority": h.get("authority", ""),
-            "effective_date": h.get("effective_date", ""),
-            "source_url": h.get("source_url", ""),
-            "source_locator": h.get("source_locator", ""),
-            "text": h["text"],
-            "score": h["score"],
-        }
-        for h in hits
-    ]
-
-    use_gpt = bool(os.getenv("OPENAI_API_KEY")) if use_gpt is None else use_gpt
-    if use_gpt:
-        try:
-            synth = _gpt_synthesize(q, hits)
-            if synth:
-                return {
-                    "answer": synth,
-                    "citations": citations,
-                    "confidence": round(float(hits[0]["score"]), 2),
-                    "refused": False,
-                }
-        except Exception:
-            pass
-
-    # Fallback: quote the top rule verbatim
-    return {
-        "answer": hits[0]["text"],
-        "citations": citations,
-        "confidence": round(float(hits[0]["score"]), 2),
-        "refused": False,
-    }
-
-
-def _gpt_synthesize(question: str, hits: list[dict]) -> str:
-    from openai import OpenAI
-    client = OpenAI()
-    context = "\n\n".join(f"[{h['rule_id']}] {h['text']}" for h in hits)
-    msg = (
-        "You are a compliance assistant for affordable-housing intake staff. "
-        "Answer ONLY using the numbered rule snippets provided. If the snippets do not "
-        "contain the answer, reply exactly: I cannot answer because this information is "
-        "not available in the provided rule documents. "
-        "Never determine eligibility. Cite rule_ids inline like [HUD-MTSP-002]. "
-        "Keep the answer under 90 words.\n\n"
-        f"RULES:\n{context}\n\nQUESTION: {question}"
+def answer_rule_question(question: str) -> RuleAnswer:
+    lowered = question.lower()
+    if any(term in lowered for term in DECISION_TERMS):
+        return RuleAnswer(
+            answer="RealDoor cannot determine eligibility, approval, denial, ranking, or priority. It can only retrieve documented rules and show calculations for a qualified reviewer.",
+            rule_id=None, citation=None, page_or_locator=None, effective_date=None,
+            confidence=1.0, abstained=True,
+        )
+    query_tokens = _tokens(question)
+    ranked = []
+    for rule in load_rules():
+        rule_tokens = _tokens(f"{rule.get('text', '')} {rule.get('source_locator', '')}")
+        overlap = len(query_tokens & rule_tokens)
+        coverage = overlap / max(1, len(query_tokens))
+        ranked.append((overlap, coverage, rule))
+    ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    if not ranked or ranked[0][0] < 1 or ranked[0][1] < .16:
+        return RuleAnswer(ABSTENTION, None, None, None, None, 0.0, abstained=True)
+    overlap, coverage, rule = ranked[0]
+    confidence = min(.98, .62 + coverage * .35 + min(overlap, 4) * .02)
+    return RuleAnswer(
+        answer=rule["text"], rule_id=rule["rule_id"], citation=rule.get("source_url"),
+        page_or_locator=rule.get("source_locator"), effective_date=rule.get("effective_date"),
+        confidence=confidence,
     )
-    r = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": msg}],
-        temperature=0,
-    )
-    return (r.choices[0].message.content or "").strip()
+
+
+def annualize(amount: float, frequency: str) -> tuple[float, str]:
+    multipliers = {"weekly": 52, "biweekly": 26, "bi-weekly": 26, "semimonthly": 24,
+                   "semi-monthly": 24, "monthly": 12, "annual": 1, "annually": 1}
+    multiplier = multipliers.get(str(frequency).lower())
+    if multiplier is None:
+        raise ValueError("A supported pay frequency is required for annualization.")
+    return amount * multiplier, f"${amount:,.2f} × {multiplier} {frequency} periods"
+
+
+def threshold_for(household_size: int, percent: int = 60) -> tuple[float | None, str]:
+    if not MTSP_LIMITS.exists():
+        return None, ""
+    frame = pd.read_csv(MTSP_LIMITS)
+    # The frozen starter data may be in wide or long form; support both.
+    columns = {str(column).lower(): column for column in frame.columns}
+    if "household_size" in columns:
+        row = frame[frame[columns["household_size"]] == household_size]
+        candidates = [key for key in columns if str(percent) in key and ("limit" in key or "%" in key)]
+        if not row.empty and candidates:
+            return float(row.iloc[0][columns[candidates[0]]]), "FY 2026 frozen MTSP table"
+    for column in frame.columns:
+        if str(column).strip() in {str(household_size), f"{household_size} Person"}:
+            candidate_rows = frame[frame.astype(str).apply(lambda row: row.str.contains(f"{percent}%", case=False).any(), axis=1)]
+            if not candidate_rows.empty:
+                return float(candidate_rows.iloc[0][column]), "FY 2026 frozen MTSP table"
+    # Exact frozen values from the supplied HUD-MTSP-002 corpus entry.
+    frozen_60 = [72000, 82320, 92580, 102840, 111120, 119340, 127560, 135780]
+    if percent == 60 and 1 <= household_size <= 8:
+        return float(frozen_60[household_size - 1]), "HUD-MTSP-002, PDF page 130"
+    return None, ""
+

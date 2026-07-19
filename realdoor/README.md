@@ -1,53 +1,38 @@
 # RealDoor — Application Readiness Copilot
 
-Internal-style enterprise app for affordable-housing agencies. Uploads
-tenant documents, runs OCR + field extraction with confidence and evidence,
-answers rulebook questions **only from cited sources**, tracks application
-readiness, and generates a professional application packet PDF.
+RealDoor is an internal-style Streamlit workbench for affordable-housing application preparation. It extracts allowlisted facts from documents, keeps every fact linked to evidence, retrieves answers only from the supplied rule corpus, measures document completeness, and creates a reviewer packet.
 
-Built for the Hack-Nation × RealPage RealDoor Challenge.
+It deliberately **does not** make eligibility, approval, denial, ranking, or priority decisions.
 
-## Run locally
+## Quick start
+
+Use Python 3.10 or later.
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-
-# Optional: enable GPT-powered OCR / extraction / rule answering
-export OPENAI_API_KEY=sk-...
-
-# For image OCR fallback, install tesseract system binary:
-#   macOS:  brew install tesseract
-#   Ubuntu: sudo apt-get install tesseract-ocr
-
 streamlit run app.py
 ```
 
-Open http://localhost:8501.
+The synthetic household workflow works without an API key. In **Settings**, an OpenAI key can optionally enable constrained extraction for newly uploaded documents. The default model is `gpt-5`; `gpt-4.1` is also supported.
 
-## What it does
+## Demo path
 
-1. **Upload** — Pay stubs, bank statements, benefit letters, employment
-   letters, IDs, leases, utility bills. Runs OCR (Tesseract or GPT vision),
-   extracts fields, shows evidence boxes and confidence.
-2. **Profile** — Confirmed household profile with per-field source,
-   confidence, and inline edit.
-3. **Rules Assistant** — Retrieval-only Q&A over the frozen rule corpus in
-   `data/rule_corpus.jsonl`. Every answer cites `rule_id`, source URL,
-   effective date, and page. Refuses when unsure.
-4. **Application Packet** — Readiness score (document completeness only,
-   never eligibility), missing/expired list, PDF export.
-5. **History / Settings** — Autosaved SQLite sessions, JSON export,
-   session reset, dark mode.
+1. Open **Upload Documents**, record consent, and load synthetic household `HH-001`.
+2. Run extraction and inspect document previews and confidence.
+3. Open **Profile**, correct or confirm extracted fields, and view highlighted source evidence.
+4. Use **Rules Assistant** for a cited corpus lookup and transparent annualization.
+5. Open **Application Packet**, review completeness, and download the PDF or JSON.
 
-## Design boundaries
+## Privacy and safety
 
-- Never determines eligibility.
-- Never answers rule questions from general knowledge.
-- Readiness score = document completeness, nothing else.
+- Raw OCR text and API keys are never written to SQLite or audit logs.
+- Uploaded bytes stay in Streamlit session memory unless a deployment explicitly adds persistence.
+- Extraction is limited to a field allowlist in `utils/models.py`.
+- Rule retrieval abstains when the supplied corpus lacks evidence.
+- Packet output includes an explicit human-review boundary.
+- The Settings page can delete all records associated with the current application.
 
-## Data
+See `docs/ARCHITECTURE.md` and `docs/SAFETY.md` for implementation details.
 
-Everything under `data/` comes from the official RealDoor starter pack
-(HUD MTSP FY 2026, LIHTC Boston metro, frozen rule corpus, gold QA,
-application checklists).
