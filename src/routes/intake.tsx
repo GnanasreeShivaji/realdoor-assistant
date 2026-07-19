@@ -4,8 +4,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { HOUSEHOLDS } from "@/lib/mock-data";
-import { useState } from "react";
-import { UploadCloud, FileText, CheckCircle2, AlertTriangle, Loader2, Trash2 } from "lucide-react";
+import { useDataMode, UPLOAD_HH_ID, notifyUploadsChanged, loadStoredFiles } from "@/lib/data-mode";
+import { useEffect, useState } from "react";
+import { UploadCloud, FileText, CheckCircle2, AlertTriangle, Loader2, Trash2, Database } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/intake")({
@@ -77,13 +78,39 @@ function extractFields(text: string) {
 }
 
 function Intake() {
-  const [selected, setSelected] = useState<string>("HH-001");
+  const [mode, setMode] = useDataMode();
+  const isUploaded = mode === "uploaded";
+  const [selected, setSelected] = useState<string>(isUploaded ? UPLOAD_HH_ID : "HH-001");
   const [uploaded, setUploaded] = useState<ExtractedFile[]>([]);
   const [busy, setBusy] = useState(false);
-  const hh = HOUSEHOLDS.find((h) => h.id === selected)!;
+
+  // Keep selection in sync with mode.
+  useEffect(() => {
+    setSelected(isUploaded ? UPLOAD_HH_ID : "HH-001");
+  }, [isUploaded]);
+
+  // Rehydrate queue when the target bucket changes.
+  useEffect(() => {
+    setUploaded(loadStoredFiles(selected));
+  }, [selected]);
+
+  const hh = HOUSEHOLDS.find((h) => h.id === selected);
+  const bucketLabel = isUploaded ? `${UPLOAD_HH_ID} · My uploads` : `${selected} · ${hh?.applicant ?? ""}`;
+
+  const persist = (list: ExtractedFile[]) => {
+    if (list.length === 0) localStorage.removeItem(`realdoor:extract:${selected}`);
+    else localStorage.setItem(`realdoor:extract:${selected}`, JSON.stringify(list));
+    notifyUploadsChanged();
+  };
 
   const onFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
+    if (!isUploaded) {
+      toast.error("Switch to 'My uploads' mode to add real documents", {
+        description: "Synthetic demo households are read-only fixtures.",
+      });
+      return;
+    }
     setBusy(true);
     const results: ExtractedFile[] = [];
     for (const f of Array.from(files)) {
@@ -96,68 +123,80 @@ function Intake() {
       } catch { /* noop */ }
       results.push({ name: f.name, size: f.size, fields, missing });
     }
-    setUploaded((u) => [...u, ...results]);
+    const next = [...uploaded, ...results];
+    setUploaded(next);
+    persist(next);
     setBusy(false);
-    try { localStorage.setItem(`realdoor:extract:${selected}`, JSON.stringify(results)); } catch {}
     const totalFound = results.reduce((n, r) => n + Object.keys(r.fields).length, 0);
     toast.success(`Extracted ${results.length} document${results.length > 1 ? "s" : ""}`, { description: `${totalFound} field${totalFound === 1 ? "" : "s"} populated · ${results.reduce((n, r) => n + r.missing.length, 0)} pending review.` });
-  };
-
-  const stageSynthetic = () => {
-    const list: ExtractedFile[] = hh.documents.map((d) => ({ name: d.fileName, size: d.pages * 42_000, fields: {}, missing: [...FIELD_KEYS] }));
-    setUploaded(list);
-    toast.success(`Staged ${hh.id}`, { description: `${list.length} synthetic documents ready for extraction.` });
   };
 
   const removeFile = (name: string) => {
     const next = uploaded.filter((f) => f.name !== name);
     setUploaded(next);
-    if (next.length === 0) localStorage.removeItem(`realdoor:extract:${selected}`);
-    else localStorage.setItem(`realdoor:extract:${selected}`, JSON.stringify(next));
+    persist(next);
   };
 
   const clearAll = () => {
     setUploaded([]);
-    localStorage.removeItem(`realdoor:extract:${selected}`);
+    persist([]);
   };
 
   return (
     <AppShell
-      eyebrow="Step 1"
+      eyebrow={isUploaded ? "My uploads" : "Synthetic demo"}
       title="Document intake"
-      description="Drop pay stubs, application summaries, employment or benefit letters, and gig statements. Extraction runs deterministically; every field is traceable to a source box."
+      description={isUploaded
+        ? "Drop real documents to build your own household bucket. Nothing here is shared with the synthetic demo fixtures."
+        : "You are viewing read-only synthetic demo households. Switch the header toggle to 'My uploads' to add real documents."
+      }
     >
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card className="card-elevated col-span-2 p-6">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div>
               <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Upload zone</div>
-              <h2 className="font-display text-lg font-semibold">Add documents to {hh.id}</h2>
+              <h2 className="font-display text-lg font-semibold">Add documents to {bucketLabel}</h2>
             </div>
             <div className="flex items-center gap-2">
-              <select value={selected} onChange={(e) => { setSelected(e.target.value); setUploaded([]); }} className="rounded-md border border-border bg-background px-2 py-1.5 text-xs">
-                {HOUSEHOLDS.map((h) => <option key={h.id} value={h.id}>{h.id} · {h.applicant}</option>)}
-              </select>
-              <Button size="sm" variant="outline" onClick={stageSynthetic}>Load synthetic household</Button>
+              {isUploaded ? (
+                <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary">Isolated from synthetic data</Badge>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => setMode("uploaded")} className="gap-1.5">
+                  <UploadCloud className="h-3.5 w-3.5" /> Switch to My uploads
+                </Button>
+              )}
             </div>
           </div>
+
+          {!isUploaded && (
+            <div className="mb-4 flex items-start gap-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-xs text-warning">
+              <Database className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <div className="font-medium">Read-only synthetic mode</div>
+                <div className="mt-0.5 text-warning/80">
+                  You're browsing HH-001…HH-006 fixtures. Uploads are disabled here to keep synthetic and real data separated. Toggle "My uploads" in the header to add documents.
+                </div>
+              </div>
+            </div>
+          )}
 
           <label
             htmlFor="fileinput"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { e.preventDefault(); onFiles(e.dataTransfer.files); }}
-            className="grid cursor-pointer place-items-center rounded-lg border border-dashed border-border/70 bg-secondary/30 px-6 py-10 text-center transition hover:border-primary/50 hover:bg-secondary/50"
+            className={`grid rounded-lg border border-dashed border-border/70 bg-secondary/30 px-6 py-10 text-center transition ${isUploaded ? "cursor-pointer place-items-center hover:border-primary/50 hover:bg-secondary/50" : "cursor-not-allowed place-items-center opacity-50"}`}
           >
             {busy ? <Loader2 className="h-6 w-6 animate-spin text-primary" /> : <UploadCloud className="h-8 w-8 text-primary" />}
             <div className="mt-3 font-display text-base font-semibold">Drag PDFs or images here</div>
             <div className="mt-1 text-xs text-muted-foreground">PDF · PNG · JPG · up to 25 MB per file · encryption in transit</div>
-            <input id="fileinput" type="file" multiple accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={(e) => onFiles(e.target.files)} />
+            <input id="fileinput" type="file" multiple accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={(e) => onFiles(e.target.files)} disabled={!isUploaded} />
           </label>
 
           {uploaded.length > 0 && (
             <div className="mt-5 space-y-4">
               <div className="flex items-center justify-between">
-                <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Extraction queue</div>
+                <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Extraction queue · {bucketLabel}</div>
                 <button onClick={clearAll} className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground hover:text-destructive transition-colors">Clear all</button>
               </div>
               {uploaded.map((f) => {
@@ -203,7 +242,7 @@ function Intake() {
           <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">What we extract</div>
           <h2 className="font-display text-lg font-semibold">Field allowlist</h2>
           <ul className="mt-3 grid grid-cols-2 gap-1.5 text-xs">
-            {["person_name", "household_size", "address", "pay_date", "pay_period_start", "pay_period_end", "pay_frequency", "gross_pay", "hourly_rate", "employer_name", "employment_start_date", "benefit_amount"].map((f) => (
+            {FIELD_KEYS.map((f) => (
               <li key={f} className="rounded border border-border/60 bg-secondary/30 px-2 py-1 font-mono text-[11px] text-muted-foreground">{f}</li>
             ))}
           </ul>
@@ -219,7 +258,7 @@ function Intake() {
             </div>
             <div className="flex gap-2">
               <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
-              <span className="text-muted-foreground">Documents are treated as untrusted input; embedded instructions are ignored.</span>
+              <span className="text-muted-foreground">Uploads live in the <span className="font-mono text-primary">{UPLOAD_HH_ID}</span> bucket, fully isolated from synthetic fixtures.</span>
             </div>
           </div>
         </Card>
