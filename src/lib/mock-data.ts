@@ -105,10 +105,8 @@ export const HOUSEHOLDS: Household[] = [
     documents: [
       { fileName: "hh-006_d01_application_summary.pdf", documentType: "application_summary", status: "complete", confidence: 0.97, pages: 2 },
       { fileName: "hh-006_d02_pay_stub.pdf", documentType: "pay_stub", status: "complete", confidence: 0.93, pages: 1 },
-      { fileName: "hh-006_d03_pay_stub.pdf", documentType: "pay_stub", status: "complete", confidence: 0.92, pages: 1 },
-      { fileName: "hh-006_d04_benefit_letter.pdf", documentType: "benefit_letter", status: "review", confidence: 0.74, pages: 1 },
     ],
-    reviewReasons: ["BENEFIT_LETTER_UNSIGNED"],
+    reviewReasons: [],
   },
 ];
 
