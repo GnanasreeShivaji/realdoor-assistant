@@ -156,19 +156,25 @@ function Intake() {
 
           {uploaded.length > 0 && (
             <div className="mt-5 space-y-4">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Extraction queue</div>
-              {uploaded.map((f, i) => {
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Extraction queue</div>
+                <button onClick={clearAll} className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground hover:text-destructive transition-colors">Clear all</button>
+              </div>
+              {uploaded.map((f) => {
                 const found = Object.keys(f.fields).length;
                 const total = FIELD_KEYS.length;
                 const status = found === 0 ? "unreadable" : found < total ? "needs review" : "extracted";
                 const tone = status === "extracted" ? "border-success/40 bg-success/10 text-success" : status === "needs review" ? "border-warning/40 bg-warning/10 text-warning" : "border-destructive/40 bg-destructive/10 text-destructive";
                 return (
-                  <div key={i} className="rounded-md border border-border/60">
+                  <div key={f.name} className="rounded-md border border-border/60">
                     <div className="flex items-center gap-3 px-3 py-2.5 text-sm">
                       <FileText className="h-4 w-4 text-muted-foreground" />
                       <span className="flex-1 truncate font-mono text-xs">{f.name}</span>
                       <span className="text-[11px] text-muted-foreground">{(f.size / 1024).toFixed(0)} KB · {found}/{total} fields</span>
                       <Badge variant="outline" className={tone}>{status}</Badge>
+                      <button onClick={() => removeFile(f.name)} aria-label={`Remove ${f.name}`} className="text-muted-foreground hover:text-destructive transition-colors">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                     {found > 0 && (
                       <div className="grid grid-cols-1 gap-1.5 border-t border-border/60 bg-secondary/20 p-3 sm:grid-cols-2">
