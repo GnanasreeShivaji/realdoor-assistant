@@ -5,8 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { HOUSEHOLDS, annualize, threshold60 } from "@/lib/mock-data";
 import { useEffect, useMemo, useState } from "react";
-import { Check, Pencil, FileText, Upload, Trash2 } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Check, Pencil, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({ meta: [{ title: "Applicant Profile · RealDoor" }, { name: "description", content: "Confirm extracted fields with source evidence before packet generation." }] }),
