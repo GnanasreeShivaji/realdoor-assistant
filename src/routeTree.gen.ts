@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RulesRouteImport } from './routes/rules'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PacketRouteImport } from './routes/packet'
 import { Route as IntakeRouteImport } from './routes/intake'
 import { Route as HistoryRouteImport } from './routes/history'
@@ -24,6 +25,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const RulesRoute = RulesRouteImport.update({
   id: '/rules',
   path: '/rules',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PacketRoute = PacketRouteImport.update({
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/history': typeof HistoryRoute
   '/intake': typeof IntakeRoute
   '/packet': typeof PacketRoute
+  '/profile': typeof ProfileRoute
   '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/history': typeof HistoryRoute
   '/intake': typeof IntakeRoute
   '/packet': typeof PacketRoute
+  '/profile': typeof ProfileRoute
   '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
 }
@@ -69,20 +77,36 @@ export interface FileRoutesById {
   '/history': typeof HistoryRoute
   '/intake': typeof IntakeRoute
   '/packet': typeof PacketRoute
+  '/profile': typeof ProfileRoute
   '/rules': typeof RulesRoute
   '/settings': typeof SettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/history' | '/intake' | '/packet' | '/rules' | '/settings'
+  fullPaths:
+    | '/'
+    | '/history'
+    | '/intake'
+    | '/packet'
+    | '/profile'
+    | '/rules'
+    | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/history' | '/intake' | '/packet' | '/rules' | '/settings'
+  to:
+    | '/'
+    | '/history'
+    | '/intake'
+    | '/packet'
+    | '/profile'
+    | '/rules'
+    | '/settings'
   id:
     | '__root__'
     | '/'
     | '/history'
     | '/intake'
     | '/packet'
+    | '/profile'
     | '/rules'
     | '/settings'
   fileRoutesById: FileRoutesById
@@ -92,6 +116,7 @@ export interface RootRouteChildren {
   HistoryRoute: typeof HistoryRoute
   IntakeRoute: typeof IntakeRoute
   PacketRoute: typeof PacketRoute
+  ProfileRoute: typeof ProfileRoute
   RulesRoute: typeof RulesRoute
   SettingsRoute: typeof SettingsRoute
 }
@@ -110,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/rules'
       fullPath: '/rules'
       preLoaderRoute: typeof RulesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/packet': {
@@ -148,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   HistoryRoute: HistoryRoute,
   IntakeRoute: IntakeRoute,
   PacketRoute: PacketRoute,
+  ProfileRoute: ProfileRoute,
   RulesRoute: RulesRoute,
   SettingsRoute: SettingsRoute,
 }
