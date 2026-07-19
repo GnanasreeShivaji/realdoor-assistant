@@ -132,24 +132,11 @@ function CompletenessView({ households }: { households: Household[] }) {
     return { name: rt.label, captured, missing: households.length - captured };
   });
 
-  const perHousehold = households.map((h) => {
-    const r = readiness(h);
-    const present: string[] = [];
-    const missing: string[] = [];
-    for (const rt of REQUIRED_TYPES) {
-      const supplied = h.documents.some((d) =>
-        rt.key === "employment_letter"
-          ? ["employment_letter", "benefit_letter", "gig_statement"].includes(d.documentType)
-          : d.documentType === rt.key
-      );
-      (supplied ? present : missing).push(rt.label);
-    }
-    return { h, r, present, missing };
-  });
+  const scores = households.map((h) => readiness(h).score);
+  const avg = Math.round(scores.reduce((s, v) => s + v, 0) / Math.max(1, scores.length));
+  const CAPTURED = "var(--success)";
+  const MISSING = "var(--destructive)";
 
-  const totals = perHousehold.map((p) => p.r);
-  const avg = Math.round(totals.reduce((s, r) => s + r.score, 0) / Math.max(1, totals.length));
-  const COLORS = ["hsl(var(--primary))", "hsl(var(--muted))"];
 
   return (
     <div className="mt-5 space-y-6">
@@ -162,72 +149,37 @@ function CompletenessView({ households }: { households: Household[] }) {
       </div>
 
       <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-        <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Per household</div>
-        <div className="mt-1 font-display text-lg font-semibold">Completeness breakdown</div>
-        <div className="mt-3 space-y-2">
-          {perHousehold.map(({ h, r, present, missing }) => {
-            const donut = [
-              { name: "Captured", value: r.score },
-              { name: "Missing", value: 100 - r.score },
-            ];
-            return (
-              <Link
-                key={h.id}
-                to="/profile"
-                className="flex items-center gap-3 rounded-md border border-border/60 bg-secondary/30 p-3 transition hover:border-primary/40 hover:bg-secondary/50"
-              >
-                <div className="h-14 w-14 shrink-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={donut} innerRadius={16} outerRadius={26} paddingAngle={2} dataKey="value" stroke="none">
-                        {donut.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <div className="truncate text-sm font-medium">{h.applicant}</div>
-                    <Badge variant="outline" className="h-5 px-1.5 py-0 text-[10px]">HH-{h.id.split("-")[1]}</Badge>
-                  </div>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {present.map((p) => (
-                      <span key={p} className="rounded bg-success/15 px-1.5 py-0.5 text-[10px] text-success ring-1 ring-success/25">✓ {p}</span>
-                    ))}
-                    {missing.map((m) => (
-                      <span key={m} className="rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] text-destructive ring-1 ring-destructive/25">✗ {m}</span>
-                    ))}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-mono text-sm">{r.score}%</div>
-                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{present.length}/{REQUIRED_TYPES.length}</div>
-                </div>
-              </Link>
-            );
-          })}
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Per required document type</div>
+            <div className="mt-1 font-display text-lg font-semibold">Captured vs missing</div>
+          </div>
+          <div className="flex gap-3 text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-success" /> Captured</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-destructive" /> Missing</span>
+          </div>
         </div>
-      </div>
-
-      <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
-        <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Per required document type</div>
-        <div className="mt-1 font-display text-lg font-semibold">Captured vs missing</div>
-        <div className="mt-3 h-48">
+        <div className="mt-3 h-56">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={perType} layout="vertical" margin={{ left: 20, right: 20, top: 10, bottom: 0 }}>
-              <XAxis type="number" hide domain={[0, households.length]} />
-              <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 6, fontSize: 11 }} />
+              <XAxis type="number" domain={[0, households.length]} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+              <Tooltip
+                cursor={{ fill: "var(--muted)", opacity: 0.25 }}
+                contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 11, color: "var(--popover-foreground)" }}
+                labelStyle={{ color: "var(--foreground)", fontWeight: 600 }}
+                formatter={(v: number, n: string) => [`${v} of ${households.length} households`, n]}
+              />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="captured" stackId="a" fill="hsl(var(--primary))" radius={[3, 0, 0, 3]} />
-              <Bar dataKey="missing" stackId="a" fill="hsl(var(--destructive))" radius={[0, 3, 3, 0]} />
+              <Bar dataKey="captured" stackId="a" fill={CAPTURED} radius={[3, 0, 0, 3]} />
+              <Bar dataKey="missing" stackId="a" fill={MISSING} radius={[0, 3, 3, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       <p className="text-[11px] text-muted-foreground">
-        Completeness measures document capture only. It does not indicate eligibility, approval, denial, or priority.
+        Completeness measures document capture only. It does not indicate eligibility, approval, denial, or priority. Per-household breakdown is available inside each applicant profile.
       </p>
     </div>
   );

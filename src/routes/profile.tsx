@@ -7,7 +7,7 @@ import { annualize, threshold60, readiness, completenessBreakdown } from "@/lib/
 import { useDataMode, getEffectiveHouseholds, loadStoredFiles } from "@/lib/data-mode";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Pencil, FileText, UploadCloud, CheckCircle2 } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { toast } from "sonner";
 
 
@@ -193,7 +193,7 @@ function Profile() {
 function CompletenessCard({ hh }: { hh: ReturnType<typeof getEffectiveHouseholds>[number] }) {
   const r = readiness(hh);
   const { present, missing, total } = completenessBreakdown(hh);
-  const tone = r.status === "READY FOR REVIEW" ? "hsl(var(--success))" : r.status === "NEEDS REVIEW" ? "hsl(var(--warning))" : "hsl(var(--destructive))";
+  const tone = r.status === "READY FOR REVIEW" ? "var(--success)" : r.status === "NEEDS REVIEW" ? "var(--warning)" : "var(--destructive)";
   const data = [
     { name: "Captured", value: present.length },
     { name: "Missing", value: missing.length },
@@ -206,9 +206,14 @@ function CompletenessCard({ hh }: { hh: ReturnType<typeof getEffectiveHouseholds
         <div className="relative h-24 w-24 shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
+              <Tooltip
+                cursor={false}
+                contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 11, color: "var(--popover-foreground)" }}
+                formatter={(v: number, n: string) => [`${v} of ${total}`, n]}
+              />
               <Pie data={data} innerRadius={28} outerRadius={44} paddingAngle={2} dataKey="value" stroke="none" startAngle={90} endAngle={-270}>
-                <Cell fill={tone} />
-                <Cell fill="hsl(var(--destructive) / 0.25)" />
+                <Cell fill={tone} name="Captured" />
+                <Cell fill="var(--destructive)" fillOpacity={0.35} name="Missing" />
               </Pie>
             </PieChart>
           </ResponsiveContainer>
