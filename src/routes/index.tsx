@@ -185,3 +185,28 @@ function StatusPill({ status }: { status: string }) {
   const tone = status === "READY FOR REVIEW" ? "border-success/40 bg-success/10 text-success" : status === "NEEDS REVIEW" ? "border-warning/40 bg-warning/10 text-warning" : "border-destructive/40 bg-destructive/10 text-destructive";
   return <Badge variant="outline" className={`h-5 border ${tone} px-1.5 py-0 text-[10px] font-medium tracking-wide`}>{status}</Badge>;
 }
+
+function HouseholdPie({ id, name, score, status }: { id: string; name: string; score: number; status: string }) {
+  const tone = status === "READY FOR REVIEW" ? "hsl(var(--success))" : status === "NEEDS REVIEW" ? "hsl(var(--warning))" : "hsl(var(--destructive))";
+  const data = [
+    { name: "captured", value: score },
+    { name: "missing", value: 100 - score },
+  ];
+  return (
+    <Link to="/profile" className="group flex flex-col items-center rounded-md border border-border/60 bg-secondary/20 p-3 transition hover:border-primary/40 hover:bg-secondary/40">
+      <div className="relative h-24 w-24">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={data} innerRadius={28} outerRadius={44} paddingAngle={2} dataKey="value" stroke="none" startAngle={90} endAngle={-270}>
+              <Cell fill={tone} />
+              <Cell fill="hsl(var(--muted))" />
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 grid place-items-center font-mono text-sm font-semibold">{score}%</div>
+      </div>
+      <div className="mt-2 w-full truncate text-center text-xs font-medium">{name}</div>
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{id}</div>
+    </Link>
+  );
+}
