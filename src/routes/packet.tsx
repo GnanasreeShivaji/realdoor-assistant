@@ -1,13 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { HOUSEHOLDS, readiness } from "@/lib/mock-data";
-import { useState } from "react";
-import { CheckCircle2, AlertTriangle, XCircle, Download, FileDown, ChevronRight, BookOpen } from "lucide-react";
+import { readiness } from "@/lib/mock-data";
+import { useDataMode, getEffectiveHouseholds } from "@/lib/data-mode";
+import { useEffect, useState } from "react";
+import { CheckCircle2, AlertTriangle, XCircle, Download, FileDown, ChevronRight, BookOpen, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/packet")({
@@ -16,9 +17,24 @@ export const Route = createFileRoute("/packet")({
 });
 
 function Packet() {
-  const [selected, setSelected] = useState("HH-001");
+  const [mode] = useDataMode();
+  const HOUSEHOLDS = getEffectiveHouseholds(mode);
+  const [selected, setSelected] = useState(HOUSEHOLDS[0]?.id ?? "");
+  useEffect(() => { setSelected(HOUSEHOLDS[0]?.id ?? ""); }, [mode, HOUSEHOLDS.length]);
   const [openItem, setOpenItem] = useState<null | { label: string; status: string }>(null);
-  const hh = HOUSEHOLDS.find((h) => h.id === selected)!;
+  const hh = HOUSEHOLDS.find((h) => h.id === selected);
+  if (!hh) {
+    return (
+      <AppShell eyebrow="My uploads" title="Application packet" description="Upload documents to generate a packet.">
+        <Card className="card-elevated p-10 text-center">
+          <UploadCloud className="mx-auto h-10 w-10 text-primary" />
+          <h3 className="mt-3 font-display text-xl font-semibold">No uploaded households yet</h3>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">Synthetic fixtures are hidden in My uploads mode. Add documents on intake to enable packet generation.</p>
+          <Link to="/intake"><Button className="mt-5 gap-1.5"><UploadCloud className="h-4 w-4" /> Go to intake</Button></Link>
+        </Card>
+      </AppShell>
+    );
+  }
   const r = readiness(hh);
 
   const items = [

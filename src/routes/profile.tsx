@@ -1,36 +1,32 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { HOUSEHOLDS, annualize, threshold60 } from "@/lib/mock-data";
+import { annualize, threshold60 } from "@/lib/mock-data";
+import { useDataMode, getEffectiveHouseholds, loadStoredFiles } from "@/lib/data-mode";
 import { useEffect, useMemo, useState } from "react";
-import { Check, Pencil, FileText } from "lucide-react";
+import { Check, Pencil, FileText, UploadCloud } from "lucide-react";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({ meta: [{ title: "Applicant Profile · RealDoor" }, { name: "description", content: "Confirm extracted fields with source evidence before packet generation." }] }),
   component: Profile,
 });
 
-type StoredFile = { name: string; size: number; fields: Record<string, string>; missing: string[] };
-
-function loadExtracted(hhId: string): StoredFile[] {
-  try {
-    const raw = localStorage.getItem(`realdoor:extract:${hhId}`);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch { return []; }
-}
-
 function Profile() {
-  const [selected, setSelected] = useState("HH-001");
-  const [stored, setStored] = useState<StoredFile[]>([]);
-  useEffect(() => { setStored(loadExtracted(selected)); }, [selected]);
+  const [mode] = useDataMode();
+  const households = getEffectiveHouseholds(mode);
+  const isUploaded = mode === "uploaded";
 
-  const hh = HOUSEHOLDS.find((h) => h.id === selected)!;
+  const [selected, setSelected] = useState(households[0]?.id ?? "");
+  useEffect(() => {
+    // Reset selection when mode / households list changes.
+    setSelected(households[0]?.id ?? "");
+  }, [mode, households.length]);
 
-  // Merge: uploaded fields take priority; fall back to mock household when absent.
+  const hh = households.find((h) => h.id === selected);
+
+  const stored = useMemo(() => (hh ? loadStoredFiles(hh.id) : []), [hh?.id, mode]);
   const merged = useMemo(() => {
     const m: Record<string, { value: string; source: string; confidence: number }> = {};
     for (const f of stored) {
@@ -41,23 +37,47 @@ function Profile() {
     return m;
   }, [stored]);
 
-  const hasUpload = stored.length > 0;
+  if (!hh) {
+    return (
+      <AppShell
+        eyebrow="My uploads"
+        title="Applicant profile"
+        description="This workspace shows only households built from your uploaded documents."
+      >
+        <EmptyUploads />
+      </AppShell>
+    );
+  }
+
   const pick = (k: string, fallback: { value: string; source: string; confidence: number }) => merged[k] ?? fallback;
 
+  // In uploaded mode we hide synthetic fallbacks entirely — empty fields stay empty.
+  const emptyFallback = (label: string) => ({ value: "—", source: label, confidence: 0 });
 
-  const grossStr = pick("gross_pay", { value: `$${hh.grossPerPeriod.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, source: "pay_stub.pdf · p.1", confidence: 0.96 });
+  const grossFallback = isUploaded
+    ? emptyFallback("awaiting upload")
+    : { value: `$${hh.grossPerPeriod.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, source: "pay_stub.pdf · p.1", confidence: 0.96 };
+  const grossStr = pick("gross_pay", grossFallback);
   const grossNum = Number(String(grossStr.value).replace(/[^0-9.]/g, "")) || hh.grossPerPeriod;
-  const freq = pick("pay_frequency", { value: hh.frequency, source: "pay_stub.pdf · p.1", confidence: 0.92 });
-  const a = annualize(grossNum, freq.value as any);
-  const sizeStr = pick("household_size", { value: String(hh.size), source: "application_summary.pdf · p.1", confidence: 0.97 });
+
+  const freqFallback = isUploaded ? emptyFallback("awaiting upload") : { value: hh.frequency, source: "pay_stub.pdf · p.1", confidence: 0.92 };
+  const freq = pick("pay_frequency", freqFallback);
+  const a = annualize(grossNum, (freq.value as any) || hh.frequency);
+
+  const sizeFallback = isUploaded ? { value: String(hh.size), source: "uploaded", confidence: 0.9 } : { value: String(hh.size), source: "application_summary.pdf · p.1", confidence: 0.97 };
+  const sizeStr = pick("household_size", sizeFallback);
   const size = Number(sizeStr.value) || hh.size;
   const t = threshold60(size);
 
+  const nameFallback = isUploaded ? { value: hh.applicant, source: "uploaded", confidence: 0.9 } : { value: hh.applicant, source: "application_summary.pdf · p.1", confidence: 0.98 };
+  const addrFallback = isUploaded ? { value: hh.address, source: "uploaded", confidence: 0.9 } : { value: hh.address, source: "application_summary.pdf · p.1", confidence: 0.94 };
+  const emplFallback = isUploaded ? { value: hh.employer, source: "uploaded", confidence: 0.9 } : { value: hh.employer, source: "employment_letter.pdf · p.1", confidence: 0.93 };
+
   const fields = [
-    { name: "person_name", ...pick("person_name", { value: hh.applicant, source: "application_summary.pdf · p.1", confidence: 0.98 }) },
+    { name: "person_name", ...pick("person_name", nameFallback) },
     { name: "household_size", ...sizeStr },
-    { name: "address", ...pick("address", { value: hh.address, source: "application_summary.pdf · p.1", confidence: 0.94 }) },
-    { name: "employer_name", ...pick("employer_name", { value: hh.employer, source: "employment_letter.pdf · p.1", confidence: 0.93 }) },
+    { name: "address", ...pick("address", addrFallback) },
+    { name: "employer_name", ...pick("employer_name", emplFallback) },
     { name: "pay_frequency", ...freq },
     { name: "gross_pay", ...grossStr },
     ...(merged["pay_date"] ? [{ name: "pay_date", ...merged["pay_date"] }] : []),
@@ -70,12 +90,12 @@ function Profile() {
 
   return (
     <AppShell
-      eyebrow="Step 2"
+      eyebrow={isUploaded ? "My uploads · Step 2" : "Synthetic demo · Step 2"}
       title="Applicant profile"
       description="Review each extracted field alongside its source. Confirmed values are recorded to the packet audit log."
       actions={<>
         <select value={selected} onChange={(e) => setSelected(e.target.value)} className="rounded-md border border-border bg-background px-2 py-1.5 text-xs">
-          {HOUSEHOLDS.map((h) => <option key={h.id} value={h.id}>{h.id} · {h.applicant}</option>)}
+          {households.map((h) => <option key={h.id} value={h.id}>{h.id} · {h.applicant}</option>)}
         </select>
       </>}
     >
@@ -86,15 +106,15 @@ function Profile() {
               <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Extracted fields</div>
               <h2 className="font-display text-lg font-semibold">{hh.id} · {hh.applicant}</h2>
             </div>
-            <Badge variant="outline" className={hasUpload ? "border-success/40 bg-success/10 text-success" : "border-border/60 bg-secondary/40 text-muted-foreground"}>
-              {hasUpload ? `${stored.length} uploaded doc${stored.length > 1 ? "s" : ""}` : "synthetic fixture"}
+            <Badge variant="outline" className={isUploaded ? "border-primary/40 bg-primary/10 text-primary" : "border-border/60 bg-secondary/40 text-muted-foreground"}>
+              {isUploaded ? `${stored.length} uploaded doc${stored.length === 1 ? "" : "s"}` : "synthetic fixture"}
             </Badge>
           </div>
           <div className="divide-y divide-border/60">
             {fields.map((f) => (
               <div key={f.name} className="grid grid-cols-12 items-center gap-3 px-5 py-3.5 text-sm">
                 <div className="col-span-3 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">{f.name}</div>
-                <div className="col-span-4 truncate font-medium">{f.value}</div>
+                <div className={`col-span-4 truncate font-medium ${f.value === "—" ? "text-muted-foreground" : ""}`}>{f.value}</div>
                 <div className="col-span-3 flex items-center gap-2 text-xs text-muted-foreground">
                   <FileText className="h-3.5 w-3.5" />
                   <span className="truncate">{f.source}</span>
@@ -103,8 +123,8 @@ function Profile() {
                   {f.fromUpload && (
                     <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary h-5 px-1.5 py-0 text-[10px]">from upload</Badge>
                   )}
-                  <Badge variant="outline" className={`border h-5 px-1.5 py-0 text-[10px] ${f.confidence >= 0.9 ? "border-success/40 bg-success/10 text-success" : "border-warning/40 bg-warning/10 text-warning"}`}>
-                    {Math.round(f.confidence * 100)}%
+                  <Badge variant="outline" className={`border h-5 px-1.5 py-0 text-[10px] ${f.confidence >= 0.9 ? "border-success/40 bg-success/10 text-success" : f.confidence > 0 ? "border-warning/40 bg-warning/10 text-warning" : "border-border/60 bg-secondary/40 text-muted-foreground"}`}>
+                    {f.confidence > 0 ? `${Math.round(f.confidence * 100)}%` : "—"}
                   </Badge>
                 </div>
               </div>
@@ -132,9 +152,21 @@ function Profile() {
             </div>
             <div className="mt-3 text-[11px] text-muted-foreground">Comparison shown for context only — never an eligibility decision.</div>
           </Card>
-
         </div>
       </div>
     </AppShell>
+  );
+}
+
+function EmptyUploads() {
+  return (
+    <Card className="card-elevated p-10 text-center">
+      <UploadCloud className="mx-auto h-10 w-10 text-primary" />
+      <h3 className="mt-3 font-display text-xl font-semibold">No uploaded households yet</h3>
+      <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+        You're in <span className="font-mono text-primary">My uploads</span> mode — synthetic fixtures are hidden here. Add real documents on the intake page to build your bucket.
+      </p>
+      <Link to="/intake"><Button className="mt-5 gap-1.5"><UploadCloud className="h-4 w-4" /> Go to intake</Button></Link>
+    </Card>
   );
 }

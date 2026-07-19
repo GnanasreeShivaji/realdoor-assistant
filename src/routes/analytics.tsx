@@ -1,13 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { HOUSEHOLDS, readiness } from "@/lib/mock-data";
+import { Button } from "@/components/ui/button";
+import { readiness } from "@/lib/mock-data";
+import { useDataMode, getEffectiveHouseholds } from "@/lib/data-mode";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   PieChart, Pie, Cell, AreaChart, Area, LineChart, Line, Legend,
 } from "recharts";
-import { Activity, CheckCircle2, FileWarning, Timer, TrendingUp, ShieldCheck } from "lucide-react";
+import { Activity, CheckCircle2, FileWarning, Timer, TrendingUp, ShieldCheck, UploadCloud } from "lucide-react";
 
 export const Route = createFileRoute("/analytics")({
   head: () => ({ meta: [
@@ -28,6 +30,22 @@ const C = {
 };
 
 function Analytics() {
+  const [mode] = useDataMode();
+  const HOUSEHOLDS = getEffectiveHouseholds(mode);
+
+  if (HOUSEHOLDS.length === 0) {
+    return (
+      <AppShell eyebrow="My uploads" title="Readiness analytics" description="No uploaded households yet.">
+        <Card className="card-elevated p-10 text-center">
+          <UploadCloud className="mx-auto h-10 w-10 text-primary" />
+          <h3 className="mt-3 font-display text-xl font-semibold">Analytics available once you upload</h3>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">Synthetic fixtures are hidden in My uploads mode. Upload documents to populate charts.</p>
+          <Link to="/intake"><Button className="mt-5 gap-1.5"><UploadCloud className="h-4 w-4" /> Go to intake</Button></Link>
+        </Card>
+      </AppShell>
+    );
+  }
+
   const totals = HOUSEHOLDS.map((h) => ({ h, r: readiness(h) }));
   const ready = totals.filter((t) => t.r.status === "READY FOR REVIEW").length;
   const needsReview = totals.filter((t) => t.r.status === "NEEDS REVIEW").length;
