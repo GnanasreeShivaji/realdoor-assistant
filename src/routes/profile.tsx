@@ -7,7 +7,7 @@ import { annualize, threshold60, readiness, completenessBreakdown } from "@/lib/
 import { useDataMode, getEffectiveHouseholds, loadStoredFiles } from "@/lib/data-mode";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Pencil, FileText, UploadCloud, CheckCircle2 } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { toast } from "sonner";
 
 
