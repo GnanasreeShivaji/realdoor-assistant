@@ -15,6 +15,7 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PacketRouteImport } from './routes/packet'
 import { Route as IntakeRouteImport } from './routes/intake'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as GitSyncRouteImport } from './routes/git-sync'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -48,6 +49,11 @@ const HistoryRoute = HistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GitSyncRoute = GitSyncRouteImport.update({
+  id: '/git-sync',
+  path: '/git-sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AnalyticsRoute = AnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -62,6 +68,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analytics': typeof AnalyticsRoute
+  '/git-sync': typeof GitSyncRoute
   '/history': typeof HistoryRoute
   '/intake': typeof IntakeRoute
   '/packet': typeof PacketRoute
@@ -72,6 +79,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/analytics': typeof AnalyticsRoute
+  '/git-sync': typeof GitSyncRoute
   '/history': typeof HistoryRoute
   '/intake': typeof IntakeRoute
   '/packet': typeof PacketRoute
@@ -83,6 +91,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/analytics': typeof AnalyticsRoute
+  '/git-sync': typeof GitSyncRoute
   '/history': typeof HistoryRoute
   '/intake': typeof IntakeRoute
   '/packet': typeof PacketRoute
@@ -95,6 +104,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/analytics'
+    | '/git-sync'
     | '/history'
     | '/intake'
     | '/packet'
@@ -105,6 +115,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/analytics'
+    | '/git-sync'
     | '/history'
     | '/intake'
     | '/packet'
@@ -115,6 +126,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/analytics'
+    | '/git-sync'
     | '/history'
     | '/intake'
     | '/packet'
@@ -126,6 +138,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnalyticsRoute: typeof AnalyticsRoute
+  GitSyncRoute: typeof GitSyncRoute
   HistoryRoute: typeof HistoryRoute
   IntakeRoute: typeof IntakeRoute
   PacketRoute: typeof PacketRoute
@@ -178,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/git-sync': {
+      id: '/git-sync'
+      path: '/git-sync'
+      fullPath: '/git-sync'
+      preLoaderRoute: typeof GitSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/analytics': {
       id: '/analytics'
       path: '/analytics'
@@ -198,6 +218,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnalyticsRoute: AnalyticsRoute,
+  GitSyncRoute: GitSyncRoute,
   HistoryRoute: HistoryRoute,
   IntakeRoute: IntakeRoute,
   PacketRoute: PacketRoute,
@@ -208,3 +229,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
