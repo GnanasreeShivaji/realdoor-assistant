@@ -62,7 +62,13 @@ function Profile() {
 
   const freqFallback = isUploaded ? emptyFallback("awaiting upload") : { value: hh.frequency, source: "pay_stub.pdf · p.1", confidence: 0.92 };
   const freq = pick("pay_frequency", freqFallback);
-  const a = annualize(grossNum, (freq.value as any) || hh.frequency);
+  const FREQ_NORMALIZE: Record<string, "weekly" | "biweekly" | "semimonthly" | "monthly"> = {
+    weekly: "weekly", biweekly: "biweekly", biweeekly: "biweekly", bimonthly: "biweekly",
+    semimonthly: "semimonthly", semi: "semimonthly", monthly: "monthly",
+  };
+  const freqKey = String(freq.value ?? "").toLowerCase().replace(/[-\s_]/g, "");
+  const normalizedFreq = FREQ_NORMALIZE[freqKey] ?? hh.frequency;
+  const a = annualize(grossNum, normalizedFreq);
 
   const sizeFallback = isUploaded ? emptyFallback("awaiting upload") : { value: String(hh.size), source: "application_summary.pdf · p.1", confidence: 0.97 };
   const sizeStr = pick("household_size", sizeFallback);
