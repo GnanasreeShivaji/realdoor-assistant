@@ -26,7 +26,80 @@ function Packet() {
     ...hh.reviewReasons.map((reason) => ({ label: reason.replaceAll("_", " ").toLowerCase(), status: "review" as const })),
   ];
 
-  const generate = () => toast.success(`Packet generated for ${hh.id}`, { description: "PDF + JSON prepared for reviewer download." });
+  const triggerDownload = (filename: string, content: string, mime: string) => {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const buildJson = () => JSON.stringify({
+    session_id: `RD-${hh.id}`,
+    generated_at: new Date().toISOString(),
+    decision_boundary: "Document completeness only; no eligibility determination.",
+    household: hh,
+    readiness: r,
+    checklist: items,
+  }, null, 2);
+
+  const buildJsonl = () => [
+    { ts: new Date().toISOString(), event: "SESSION_OPENED", household: hh.id },
+    ...hh.documents.map((d) => ({ ts: new Date().toISOString(), event: "DOCUMENT_INGESTED", file: d.fileName, type: d.documentType, confidence: d.confidence })),
+    { ts: new Date().toISOString(), event: "READINESS_COMPUTED", score: r.score, status: r.status },
+    { ts: new Date().toISOString(), event: "PACKET_GENERATED", household: hh.id },
+  ].map((e) => JSON.stringify(e)).join("\n");
+
+  const buildPdfText = () => {
+    const lines = [
+      "RealDoor — Application Readiness Packet",
+      `Reference: RD-${hh.id}`,
+      `Generated: ${new Date().toISOString()}`,
+      "",
+      "REVIEWER NOTICE: Document completeness only. No eligibility determination.",
+      "",
+      `Applicant: ${hh.applicant}`,
+      `Address: ${hh.address}`,
+      `Household size: ${hh.size}`,
+      `Employer: ${hh.employer}`,
+      "",
+      `Readiness: ${r.score}% — ${r.status}`,
+      `Present: ${r.present}   Missing: ${r.missing}   Review: ${r.review}`,
+      "",
+      "Checklist:",
+      ...items.map((i) => `  [${i.status.toUpperCase()}] ${i.label}`),
+      "",
+      "Documents:",
+      ...hh.documents.map((d) => `  - ${d.fileName} (${d.documentType}) — ${d.status} @ ${(d.confidence * 100).toFixed(0)}%`),
+    ].join("\n");
+    // Minimal single-page PDF wrapping the text so the file opens as a real PDF.
+    const escaped = lines.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+    const stream = `BT /F1 10 Tf 40 760 Td 12 TL (${escaped.split("\n").join(") Tj T* (")}) Tj ET`;
+    const objs = [
+      "1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj",
+      "2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj",
+      "3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Resources<</Font<</F1 5 0 R>>>>/Contents 4 0 R>>endobj",
+      `4 0 obj<</Length ${stream.length}>>stream\n${stream}\nendstream endobj`,
+      "5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj",
+    ];
+    let pdf = "%PDF-1.4\n";
+    const offsets: number[] = [];
+    for (const o of objs) { offsets.push(pdf.length); pdf += o + "\n"; }
+    const xref = pdf.length;
+    pdf += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n`;
+    for (const off of offsets) pdf += `${off.toString().padStart(10, "0")} 00000 n \n`;
+    pdf += `trailer<</Size ${objs.length + 1}/Root 1 0 R>>\nstartxref\n${xref}\n%%EOF`;
+    return pdf;
+  };
+
+  const downloadPdf = () => { triggerDownload(`RealDoor_${hh.id}.pdf`, buildPdfText(), "application/pdf"); toast.success("Reviewer PDF downloaded"); };
+  const downloadJson = () => { triggerDownload(`RealDoor_${hh.id}.json`, buildJson(), "application/json"); toast.success("Machine JSON downloaded"); };
+  const downloadJsonl = () => { triggerDownload(`RealDoor_${hh.id}_audit.jsonl`, buildJsonl(), "application/x-ndjson"); toast.success("Audit trail downloaded"); };
+  const generate = () => { downloadPdf(); downloadJson(); downloadJsonl(); };
 
   return (
     <AppShell
