@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { readiness, annualize, threshold60 } from "@/lib/mock-data";
+import { readiness, annualize, threshold60, completenessBreakdown, type Household } from "@/lib/mock-data";
 import { useDataMode, getEffectiveHouseholds } from "@/lib/data-mode";
 import { ArrowUpRight, CheckCircle2, FileWarning, Clock3, TrendingUp, ChevronRight, UploadCloud } from "lucide-react";
 import { useState } from "react";
@@ -136,9 +136,9 @@ function Dashboard() {
             <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-destructive/70" /> Missing</span>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {totals.map(({ h, r }) => (
-            <HouseholdPie key={h.id} id={h.id} name={h.applicant} score={r.score} status={r.status} />
+            <HouseholdPie key={h.id} h={h} score={r.score} status={r.status} />
           ))}
         </div>
       </Card>
@@ -186,27 +186,40 @@ function StatusPill({ status }: { status: string }) {
   return <Badge variant="outline" className={`h-5 border ${tone} px-1.5 py-0 text-[10px] font-medium tracking-wide`}>{status}</Badge>;
 }
 
-function HouseholdPie({ id, name, score, status }: { id: string; name: string; score: number; status: string }) {
+function HouseholdPie({ h, score, status }: { h: Household; score: number; status: string }) {
   const tone = status === "READY FOR REVIEW" ? "hsl(var(--success))" : status === "NEEDS REVIEW" ? "hsl(var(--warning))" : "hsl(var(--destructive))";
+  const { present, missing } = completenessBreakdown(h);
   const data = [
-    { name: "captured", value: score },
-    { name: "missing", value: 100 - score },
+    { name: "Captured", value: present.length },
+    { name: "Missing", value: missing.length },
   ];
   return (
-    <Link to="/profile" className="group flex flex-col items-center rounded-md border border-border/60 bg-secondary/20 p-3 transition hover:border-primary/40 hover:bg-secondary/40">
-      <div className="relative h-24 w-24">
+    <Link to="/profile" className="group flex items-center gap-3 rounded-md border border-border/60 bg-secondary/20 p-3 transition hover:border-primary/40 hover:bg-secondary/40">
+      <div className="relative h-20 w-20 shrink-0">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={data} innerRadius={28} outerRadius={44} paddingAngle={2} dataKey="value" stroke="none" startAngle={90} endAngle={-270}>
+            <Pie data={data} innerRadius={24} outerRadius={38} paddingAngle={2} dataKey="value" stroke="none" startAngle={90} endAngle={-270}>
               <Cell fill={tone} />
-              <Cell fill="hsl(var(--muted))" />
+              <Cell fill="hsl(var(--destructive) / 0.25)" />
             </Pie>
           </PieChart>
         </ResponsiveContainer>
-        <div className="pointer-events-none absolute inset-0 grid place-items-center font-mono text-sm font-semibold">{score}%</div>
+        <div className="pointer-events-none absolute inset-0 grid place-items-center font-mono text-xs font-semibold">{score}%</div>
       </div>
-      <div className="mt-2 w-full truncate text-center text-xs font-medium">{name}</div>
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{id}</div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <div className="truncate text-sm font-medium">{h.applicant}</div>
+          <Badge variant="outline" className="h-5 px-1.5 py-0 text-[10px]">{h.id}</Badge>
+        </div>
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {present.map((p) => (
+            <span key={p} className="rounded bg-success/15 px-1.5 py-0.5 text-[10px] text-success ring-1 ring-success/25">✓ {p}</span>
+          ))}
+          {missing.map((m) => (
+            <span key={m} className="rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] text-destructive ring-1 ring-destructive/25">✗ {m}</span>
+          ))}
+        </div>
+      </div>
     </Link>
   );
 }

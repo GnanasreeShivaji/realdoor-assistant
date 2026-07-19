@@ -3,10 +3,11 @@ import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { annualize, threshold60 } from "@/lib/mock-data";
+import { annualize, threshold60, readiness, completenessBreakdown } from "@/lib/mock-data";
 import { useDataMode, getEffectiveHouseholds, loadStoredFiles } from "@/lib/data-mode";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Pencil, FileText, UploadCloud, CheckCircle2 } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
 
 
@@ -170,6 +171,7 @@ function Profile() {
 
 
         <div className="space-y-4">
+          <CompletenessCard hh={hh} />
           <Card className="card-elevated p-5">
             <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Calculation ledger</div>
             <h2 className="font-display text-lg font-semibold">Annualized reference</h2>
@@ -185,6 +187,53 @@ function Profile() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+function CompletenessCard({ hh }: { hh: ReturnType<typeof getEffectiveHouseholds>[number] }) {
+  const r = readiness(hh);
+  const { present, missing, total } = completenessBreakdown(hh);
+  const tone = r.status === "READY FOR REVIEW" ? "hsl(var(--success))" : r.status === "NEEDS REVIEW" ? "hsl(var(--warning))" : "hsl(var(--destructive))";
+  const data = [
+    { name: "Captured", value: present.length },
+    { name: "Missing", value: missing.length },
+  ];
+  return (
+    <Card className="card-elevated p-5">
+      <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Applicant readiness</div>
+      <h2 className="font-display text-lg font-semibold">Document completeness</h2>
+      <div className="mt-3 flex items-center gap-4">
+        <div className="relative h-24 w-24 shrink-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={data} innerRadius={28} outerRadius={44} paddingAngle={2} dataKey="value" stroke="none" startAngle={90} endAngle={-270}>
+                <Cell fill={tone} />
+                <Cell fill="hsl(var(--destructive) / 0.25)" />
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="pointer-events-none absolute inset-0 grid place-items-center font-mono text-sm font-semibold">{r.score}%</div>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-xs text-muted-foreground">{present.length} / {total} required document types</div>
+          <div className="mt-1 text-sm font-medium">{r.status}</div>
+        </div>
+      </div>
+      <ul className="mt-4 space-y-1.5 text-xs">
+        {present.map((p) => (
+          <li key={p} className="flex items-center gap-2">
+            <span className="grid h-4 w-4 place-items-center rounded-full bg-success/15 text-success ring-1 ring-success/25">✓</span>
+            <span className="text-foreground/90">{p}</span>
+          </li>
+        ))}
+        {missing.map((m) => (
+          <li key={m} className="flex items-center gap-2">
+            <span className="grid h-4 w-4 place-items-center rounded-full bg-destructive/15 text-destructive ring-1 ring-destructive/25">✗</span>
+            <span className="text-destructive">{m} — missing</span>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }
 

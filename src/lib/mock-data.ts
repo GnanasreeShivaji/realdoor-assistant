@@ -143,6 +143,16 @@ export function readiness(hh: Household) {
   return { score, status, missing, review, present: complete, required: REQUIRED_SLOTS.map((s) => s.key) };
 }
 
+export function completenessBreakdown(hh: Household) {
+  const supplied = new Set(hh.documents.map((d) => d.documentType));
+  const present: string[] = [];
+  const missing: string[] = [];
+  for (const s of REQUIRED_SLOTS) {
+    (s.accepts.some((t) => supplied.has(t)) ? present : missing).push(s.label);
+  }
+  return { present, missing, total: REQUIRED_SLOTS.length };
+}
+
 const DECISION_TERMS = ["eligible", "eligibility", "approve", "approved", "deny", "denied", "priority", "rank"];
 const STOP = new Set(["the", "a", "an", "is", "are", "for", "of", "to", "and", "what", "how", "my", "do"]);
 
