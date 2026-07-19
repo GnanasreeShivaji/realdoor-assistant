@@ -5,8 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { HOUSEHOLDS, annualize, threshold60 } from "@/lib/mock-data";
 import { useEffect, useMemo, useState } from "react";
-import { Check, Pencil, FileText, Upload, Trash2 } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Check, Pencil, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({ meta: [{ title: "Applicant Profile · RealDoor" }, { name: "description", content: "Confirm extracted fields with source evidence before packet generation." }] }),
@@ -45,16 +44,6 @@ function Profile() {
   const hasUpload = stored.length > 0;
   const pick = (k: string, fallback: { value: string; source: string; confidence: number }) => merged[k] ?? fallback;
 
-  const removeDoc = (name: string) => {
-    const next = stored.filter((d) => d.name !== name);
-    setStored(next);
-    if (next.length === 0) localStorage.removeItem(`realdoor:extract:${selected}`);
-    else localStorage.setItem(`realdoor:extract:${selected}`, JSON.stringify(next));
-  };
-  const clearAll = () => {
-    setStored([]);
-    localStorage.removeItem(`realdoor:extract:${selected}`);
-  };
 
   const grossStr = pick("gross_pay", { value: `$${hh.grossPerPeriod.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, source: "pay_stub.pdf · p.1", confidence: 0.96 });
   const grossNum = Number(String(grossStr.value).replace(/[^0-9.]/g, "")) || hh.grossPerPeriod;
@@ -90,15 +79,6 @@ function Profile() {
         </select>
       </>}
     >
-      {!hasUpload && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
-          <div>
-            <div className="font-medium text-warning">No uploaded documents for {selected} yet.</div>
-            <div className="text-xs text-muted-foreground">Showing synthetic fixture values. Upload real PDFs on Intake to populate this profile with your data.</div>
-          </div>
-          <Link to="/intake" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-secondary"><Upload className="h-3.5 w-3.5" /> Go to Intake</Link>
-        </div>
-      )}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card className="card-elevated col-span-2 p-0 overflow-hidden">
           <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
@@ -153,32 +133,6 @@ function Profile() {
             <div className="mt-3 text-[11px] text-muted-foreground">Comparison shown for context only — never an eligibility decision.</div>
           </Card>
 
-          <Card className="card-elevated p-5">
-            <div className="flex items-center justify-between">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Documents on file</div>
-              {hasUpload && (
-                <button onClick={clearAll} className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground hover:text-destructive transition-colors">Clear all</button>
-              )}
-            </div>
-            <ul className="mt-3 space-y-2 text-sm">
-              {hasUpload ? stored.map((d) => (
-                <li key={d.name} className="flex items-center gap-2 group">
-                  <FileText className="h-3.5 w-3.5 text-primary" />
-                  <span className="flex-1 truncate font-mono text-xs">{d.name}</span>
-                  <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary h-5 px-1.5 py-0 text-[10px]">{Object.keys(d.fields).length} fields</Badge>
-                  <button onClick={() => removeDoc(d.name)} aria-label={`Remove ${d.name}`} className="text-muted-foreground hover:text-destructive transition-colors">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </li>
-              )) : hh.documents.map((d) => (
-                <li key={d.fileName} className="flex items-center gap-2">
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="flex-1 truncate font-mono text-xs">{d.fileName}</span>
-                  <Badge variant="outline" className={`h-5 px-1.5 py-0 text-[10px] ${d.status === "complete" ? "border-success/40 bg-success/10 text-success" : d.status === "review" ? "border-warning/40 bg-warning/10 text-warning" : "border-destructive/40 bg-destructive/10 text-destructive"}`}>{d.status}</Badge>
-                </li>
-              ))}
-            </ul>
-          </Card>
         </div>
       </div>
     </AppShell>
