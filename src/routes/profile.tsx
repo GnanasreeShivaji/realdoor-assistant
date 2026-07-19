@@ -171,6 +171,7 @@ function Profile() {
 
 
         <div className="space-y-4">
+          <CompletenessCard hh={hh} />
           <Card className="card-elevated p-5">
             <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Calculation ledger</div>
             <h2 className="font-display text-lg font-semibold">Annualized reference</h2>
