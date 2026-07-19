@@ -128,15 +128,22 @@ export function threshold60(size: number) {
   return FROZEN_60[idx];
 }
 
+// A "verification" requirement is satisfied by any one of these three document types.
+const VERIFICATION_TYPES = ["employment_letter", "benefit_letter", "gig_statement"];
+const REQUIRED_SLOTS: { key: string; label: string; accepts: string[] }[] = [
+  { key: "application_summary", label: "Application summary", accepts: ["application_summary"] },
+  { key: "pay_stub", label: "Pay stub", accepts: ["pay_stub"] },
+  { key: "verification", label: "Employment or benefit verification", accepts: VERIFICATION_TYPES },
+];
+
 export function readiness(hh: Household) {
-  const required = ["application_summary", "pay_stub", "employment_letter"];
   const supplied = new Set(hh.documents.map((d) => d.documentType));
-  const complete = required.filter((t) => supplied.has(t)).length;
-  const missing = required.length - complete;
+  const complete = REQUIRED_SLOTS.filter((s) => s.accepts.some((t) => supplied.has(t))).length;
+  const missing = REQUIRED_SLOTS.length - complete;
   const review = hh.reviewReasons.length + hh.documents.filter((d) => d.status !== "complete").length;
-  const score = Math.round((100 * complete) / required.length);
+  const score = Math.round((100 * complete) / REQUIRED_SLOTS.length);
   const status = missing > 0 ? "INCOMPLETE" : review > 0 ? "NEEDS REVIEW" : "READY FOR REVIEW";
-  return { score, status, missing, review, present: complete, required };
+  return { score, status, missing, review, present: complete, required: REQUIRED_SLOTS.map((s) => s.key) };
 }
 
 const DECISION_TERMS = ["eligible", "eligibility", "approve", "approved", "deny", "denied", "priority", "rank"];
