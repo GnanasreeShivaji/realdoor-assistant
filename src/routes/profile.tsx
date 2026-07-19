@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { annualize, threshold60 } from "@/lib/mock-data";
 import { useDataMode, getEffectiveHouseholds, loadStoredFiles } from "@/lib/data-mode";
 import { useEffect, useMemo, useState } from "react";
-import { Check, Pencil, FileText, UploadCloud } from "lucide-react";
+import { Check, Pencil, FileText, UploadCloud, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/profile")({
   head: () => ({ meta: [{ title: "Applicant Profile · RealDoor" }, { name: "description", content: "Confirm extracted fields with source evidence before packet generation." }] }),
