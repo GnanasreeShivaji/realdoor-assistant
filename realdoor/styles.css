@@ -1,0 +1,130 @@
+/* RealDoor — enterprise UI polish */
+
+:root {
+  --rd-bg: #f6f7fb;
+  --rd-surface: #ffffff;
+  --rd-border: #e5e8ef;
+  --rd-text: #0f172a;
+  --rd-muted: #64748b;
+  --rd-primary: #1f4bd8;
+  --rd-primary-soft: #eaf0ff;
+  --rd-success: #0f9d58;
+  --rd-warn: #b7791f;
+  --rd-danger: #c0392b;
+  --rd-radius: 14px;
+  --rd-shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06);
+}
+
+html, body, [class*="stApp"] {
+  background: var(--rd-bg) !important;
+  color: var(--rd-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+}
+
+section[data-testid="stSidebar"] {
+  background: #0f172a;
+}
+section[data-testid="stSidebar"] * { color: #e2e8f0 !important; }
+section[data-testid="stSidebar"] h1 { color: #fff !important; }
+
+/* Cards */
+.rd-card {
+  background: var(--rd-surface);
+  border: 1px solid var(--rd-border);
+  border-radius: var(--rd-radius);
+  padding: 20px 22px;
+  box-shadow: var(--rd-shadow);
+  margin-bottom: 16px;
+}
+.rd-card h3 { margin-top: 0; font-size: 16px; letter-spacing: .01em; }
+.rd-muted { color: var(--rd-muted); font-size: 13px; }
+
+/* KPI tiles */
+.rd-kpi {
+  background: var(--rd-surface);
+  border: 1px solid var(--rd-border);
+  border-radius: var(--rd-radius);
+  padding: 18px 20px;
+  box-shadow: var(--rd-shadow);
+}
+.rd-kpi .label { color: var(--rd-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+.rd-kpi .value { font-size: 30px; font-weight: 600; margin-top: 4px; color: var(--rd-text); }
+.rd-kpi .delta { font-size: 12px; color: var(--rd-success); margin-top: 2px; }
+
+/* Badges */
+.rd-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+.rd-badge.ok      { background:#e6f6ee; color:var(--rd-success); border-color:#c7ecd6; }
+.rd-badge.warn    { background:#fff5e0; color:var(--rd-warn);    border-color:#f5e2b5; }
+.rd-badge.danger  { background:#fdecea; color:var(--rd-danger);  border-color:#f5c6c2; }
+.rd-badge.info    { background:var(--rd-primary-soft); color:var(--rd-primary); border-color:#cddcff; }
+.rd-badge.neutral { background:#eef1f7; color:#334155; border-color:#dfe4ee; }
+
+/* Progress ring wrapper */
+.rd-readiness {
+  display:flex; align-items:center; gap:20px;
+  background: linear-gradient(135deg, #1f4bd8 0%, #3b82f6 100%);
+  color:#fff; padding:22px 26px; border-radius: var(--rd-radius);
+  box-shadow: var(--rd-shadow);
+}
+.rd-readiness .pct { font-size:48px; font-weight:700; line-height:1; }
+.rd-readiness .lbl { text-transform:uppercase; letter-spacing:.12em; font-size:11px; opacity:.85; }
+.rd-readiness .sub { font-size:13px; opacity:.9; margin-top:4px; }
+
+/* Field rows */
+.rd-field {
+  display:grid; grid-template-columns: 200px 1fr auto auto;
+  gap:12px; align-items:center;
+  padding:10px 0; border-bottom:1px dashed var(--rd-border);
+}
+.rd-field:last-child { border-bottom:none; }
+.rd-field .k { color:var(--rd-muted); font-size:13px; }
+.rd-field .v { font-weight:500; }
+.rd-field .src { font-size:12px; color:var(--rd-muted); }
+
+/* Rules answer card */
+.rd-answer {
+  border-left: 4px solid var(--rd-primary);
+  background: #fbfcff;
+  padding: 16px 18px;
+  border-radius: 10px;
+}
+.rd-answer .txt { font-size: 15px; line-height:1.55; }
+.rd-cite {
+  margin-top:10px; padding-top:10px; border-top:1px solid var(--rd-border);
+  font-size:12px; color:var(--rd-muted);
+}
+.rd-cite a { color: var(--rd-primary); text-decoration:none; }
+
+/* Hide default streamlit branding */
+#MainMenu, footer, header [data-testid="stToolbar"] { visibility: hidden; }
+
+.block-container { padding-top: 2rem; max-width: 1180px; }
+
+/* Buttons */
+.stButton>button {
+  border-radius: 10px;
+  border: 1px solid var(--rd-border);
+  background: var(--rd-surface);
+  color: var(--rd-text);
+  padding: .5rem 1rem;
+  font-weight: 500;
+  transition: all .15s ease;
+}
+.stButton>button:hover { border-color: var(--rd-primary); color: var(--rd-primary); }
+.stButton>button[kind="primary"] {
+  background: var(--rd-primary); color: #fff; border-color: var(--rd-primary);
+}
+.stButton>button[kind="primary"]:hover { background:#1a3fb8; }
+
+/* File uploader */
+[data-testid="stFileUploader"] section {
+  border: 1.5px dashed #c3cbdb; border-radius: var(--rd-radius);
+  background: var(--rd-surface);
+}
