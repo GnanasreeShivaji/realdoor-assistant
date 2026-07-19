@@ -117,13 +117,14 @@ else:
             with left:
                 if d.get("preview_png"):
                     st.image(d["preview_png"], caption="Preview", use_container_width=True)
-                st.markdown(
-                    f"{badge(d['ocr_engine'], 'info')} "
-                    f"{badge(f'{d[\"ocr_ms\"]} ms', 'neutral')} "
-                    f"{badge('OCR OK' if not d.get('ocr_error') else 'OCR ERROR',
-                            'ok' if not d.get('ocr_error') else 'danger')}",
-                    unsafe_allow_html=True,
-                )
+                ok = not d.get("ocr_error")
+                badges_html = " ".join([
+                    badge(d["ocr_engine"], "info"),
+                    badge(f"{d['ocr_ms']} ms", "neutral"),
+                    badge("OCR OK" if ok else "OCR ERROR", "ok" if ok else "danger"),
+                ])
+                st.markdown(badges_html, unsafe_allow_html=True)
+
                 if d.get("ocr_error"):
                     st.error(d["ocr_error"])
                 with st.expander("Raw OCR text"):
