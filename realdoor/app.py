@@ -8,7 +8,7 @@ import streamlit as st
 from utils.db import get_documents, get_fields
 from utils.readiness import assess_readiness
 from utils.session import init_session
-from utils.ui import metric_card, page_header, safety_notice, sidebar, status_badge
+from utils.ui import metric_card, page_header, readiness_hero, safety_notice, sidebar, status_badge
 
 session_id = init_session()
 sidebar("Dashboard", session_id)
@@ -16,14 +16,24 @@ documents = get_documents(session_id)
 fields = get_fields(session_id)
 readiness = assess_readiness(documents, st.session_state.demo_household)
 
-page_header("Case workspace", "Application overview", "Review document evidence, confirm extracted facts, and prepare a complete packet for a qualified housing specialist.")
+page_header("Case workspace", "Application overview",
+            "Review document evidence, confirm extracted facts, and prepare a "
+            "complete packet for a qualified housing specialist.")
 safety_notice()
 
+# --- Readiness hero (dossier plate) --------------------------------------
+present  = sum(1 for i in readiness["items"] if i.status == "complete")
+missing  = sum(1 for i in readiness["items"] if i.status == "missing")
+expired  = sum(1 for i in readiness["items"] if i.status in {"expired", "review"})
+readiness_hero(readiness["score"], readiness["status"], present, missing, expired)
+
+# --- Metric strip --------------------------------------------------------
 cols = st.columns(4)
 with cols[0]: metric_card("Documents", str(len(documents)), "Indexed in this application")
 with cols[1]: metric_card("Extracted fields", str(len(fields)), f"{sum(f['confirmed'] for f in fields)} confirmed", "teal")
 with cols[2]: metric_card("Completeness", f"{readiness['score']}%", readiness["disclaimer"], "amber")
-with cols[3]: metric_card("Workflow status", readiness["status"], "Human review remains required")
+with cols[3]: metric_card("Workflow status", readiness["status"], "Human review remains required", "gold")
+
 
 st.subheader("Review queue")
 left, right = st.columns([1.5, 1])

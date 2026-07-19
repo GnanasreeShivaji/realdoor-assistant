@@ -11,21 +11,29 @@ from utils.db import add_packet, get_documents, get_fields
 from utils.packet_generator import generate_packet
 from utils.readiness import assess_readiness
 from utils.session import init_session
-from utils.ui import metric_card, page_header, safety_notice, sidebar, status_badge
+from utils.ui import metric_card, page_header, readiness_hero, safety_notice, sidebar, status_badge
 
 session_id = init_session()
 sidebar("Application Packet", session_id)
 documents = get_documents(session_id)
 fields = get_fields(session_id)
 readiness = assess_readiness(documents, st.session_state.demo_household)
-page_header("Step 3 · Completeness review", "Application readiness", "Resolve missing or review items, then create a structured packet for a qualified housing specialist.")
+page_header("Step 3 · Completeness review", "Application readiness",
+            "Resolve missing or review items, then create a structured packet "
+            "for a qualified housing specialist.")
 safety_notice()
+
+present = sum(1 for i in readiness["items"] if i.status == "complete")
+missing = sum(1 for i in readiness["items"] if i.status == "missing")
+expired = sum(1 for i in readiness["items"] if i.status in {"expired", "review"})
+readiness_hero(readiness["score"], readiness["status"], present, missing, expired)
 
 cols = st.columns(3)
 with cols[0]: metric_card("Document completeness", f"{readiness['score']}%", readiness["disclaimer"], "teal")
 with cols[1]: metric_card("Review state", readiness["status"], "This is not an eligibility result", "amber")
-with cols[2]: metric_card("Estimated completion", f"{readiness['estimated_minutes']} min", "Based on unresolved checklist items")
+with cols[2]: metric_card("Estimated completion", f"{readiness['estimated_minutes']} min", "Based on unresolved checklist items", "gold")
 st.progress(readiness["score"] / 100, text=f"{readiness['score']}% of required document types present")
+
 
 st.markdown("### Professional checklist")
 for item in readiness["items"]:
