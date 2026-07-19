@@ -73,15 +73,17 @@ else:
     if extras:
         st.markdown("<div class='rd-card'><h3>Other</h3>", unsafe_allow_html=True)
         for fname, obj in extras:
+            conf_pct = int(obj.get("confidence", 0) * 100)
             st.markdown(
                 f"<div class='rd-field'>"
                 f"<div class='k'>{fname.replace('_',' ').title()}</div>"
                 f"<div class='v'>{obj['value']}</div>"
                 f"<div class='src'>{obj.get('source','')}</div>"
-                f"<div>{badge(f'{int(obj.get(\"confidence\",0)*100)}%', 'neutral')}</div>"
+                f"<div>{badge(f'{conf_pct}%', 'neutral')}</div>"
                 f"</div>",
                 unsafe_allow_html=True,
             )
+
         st.markdown("</div>", unsafe_allow_html=True)
 
 st.write("")

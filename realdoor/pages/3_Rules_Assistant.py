@@ -73,11 +73,12 @@ if ask and question.strip():
 
         st.markdown("#### Citations")
         for c in result["citations"]:
+            score_badge = badge(f"score {c['score']:.2f}", "info")
             st.markdown(
                 f"<div class='rd-card' style='margin-bottom:8px;'>"
                 f"<div style='display:flex; justify-content:space-between; align-items:center;'>"
                 f"<div><b>{c['rule_id']}</b> · <span class='rd-muted'>{c.get('authority','')}</span></div>"
-                f"<div>{badge(f'score {c[\"score\"]:.2f}', 'info')}</div>"
+                f"<div>{score_badge}</div>"
                 f"</div>"
                 f"<div style='margin-top:8px;'>{c['text']}</div>"
                 f"<div class='rd-cite'>"
@@ -87,6 +88,7 @@ if ask and question.strip():
                 f"</div>",
                 unsafe_allow_html=True,
             )
+
 
 # Session history
 if st.session_state["rule_history"]:
