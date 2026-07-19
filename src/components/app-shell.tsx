@@ -1,6 +1,31 @@
 import type { ReactNode } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Bell, Search, Command } from "lucide-react";
+import { Bell, Search, Command, Database, UploadCloud } from "lucide-react";
+import { useDataMode } from "@/lib/data-mode";
+
+function ModeToggle() {
+  const [mode, setMode] = useDataMode();
+  return (
+    <div className="inline-flex items-center rounded-md border border-border/70 bg-secondary/40 p-0.5 text-[11px] font-medium">
+      <button
+        onClick={() => setMode("synthetic")}
+        className={`flex items-center gap-1.5 rounded px-2 py-1 transition ${mode === "synthetic" ? "bg-primary/20 text-primary ring-1 ring-primary/30" : "text-muted-foreground hover:text-foreground"}`}
+        aria-pressed={mode === "synthetic"}
+        title="Show synthetic demo households (HH-001…HH-006)"
+      >
+        <Database className="h-3 w-3" /> Synthetic demo
+      </button>
+      <button
+        onClick={() => setMode("uploaded")}
+        className={`flex items-center gap-1.5 rounded px-2 py-1 transition ${mode === "uploaded" ? "bg-primary/20 text-primary ring-1 ring-primary/30" : "text-muted-foreground hover:text-foreground"}`}
+        aria-pressed={mode === "uploaded"}
+        title="Show only households built from your uploaded documents"
+      >
+        <UploadCloud className="h-3 w-3" /> My uploads
+      </button>
+    </div>
+  );
+}
 
 export function AppShell({
   eyebrow, title, description, actions, children,
@@ -23,7 +48,8 @@ export function AppShell({
           </span>
         </div>
         <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="hidden sm:inline">Boston · MA HMFA · FY 2026</span>
+          <ModeToggle />
+          <span className="hidden lg:inline">Boston · MA HMFA · FY 2026</span>
           <button className="rounded-md p-1.5 hover:bg-secondary/60"><Bell className="h-4 w-4" /></button>
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-[11px] font-semibold text-primary ring-1 ring-primary/30">RA</div>
         </div>
