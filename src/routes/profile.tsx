@@ -77,11 +77,25 @@ function Profile() {
         </select>
       </>}
     >
+      {!hasUpload && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
+          <div>
+            <div className="font-medium text-warning">No uploaded documents for {selected} yet.</div>
+            <div className="text-xs text-muted-foreground">Showing synthetic fixture values. Upload real PDFs on Intake to populate this profile with your data.</div>
+          </div>
+          <Link to="/intake" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-secondary"><Upload className="h-3.5 w-3.5" /> Go to Intake</Link>
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card className="card-elevated col-span-2 p-0 overflow-hidden">
-          <div className="border-b border-border/60 px-5 py-3">
-            <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Extracted fields</div>
-            <h2 className="font-display text-lg font-semibold">{hh.id} · {hh.applicant}</h2>
+          <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Extracted fields</div>
+              <h2 className="font-display text-lg font-semibold">{hh.id} · {hh.applicant}</h2>
+            </div>
+            <Badge variant="outline" className={hasUpload ? "border-success/40 bg-success/10 text-success" : "border-border/60 bg-secondary/40 text-muted-foreground"}>
+              {hasUpload ? `${stored.length} uploaded doc${stored.length > 1 ? "s" : ""}` : "synthetic fixture"}
+            </Badge>
           </div>
           <div className="divide-y divide-border/60">
             {fields.map((f) => (
