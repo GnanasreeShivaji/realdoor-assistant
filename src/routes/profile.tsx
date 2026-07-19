@@ -4,27 +4,61 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { HOUSEHOLDS, annualize, threshold60 } from "@/lib/mock-data";
-import { useState } from "react";
-import { Check, Pencil, FileText } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, Pencil, FileText, Upload } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/profile")({
-  head: () => ({ meta: [{ title: "Applicant Profile · RealDoor" }, { name: "description", content: "Confirm extracted fields with source evidence before packet generation." }] }),
-  component: Profile,
-});
+type StoredFile = { name: string; size: number; fields: Record<string, string>; missing: string[] };
+
+function loadExtracted(hhId: string): StoredFile[] {
+  try {
+    const raw = localStorage.getItem(`realdoor:extract:${hhId}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
 
 function Profile() {
   const [selected, setSelected] = useState("HH-001");
+  const [stored, setStored] = useState<StoredFile[]>([]);
+  useEffect(() => { setStored(loadExtracted(selected)); }, [selected]);
+
   const hh = HOUSEHOLDS.find((h) => h.id === selected)!;
-  const a = annualize(hh.grossPerPeriod, hh.frequency);
-  const t = threshold60(hh.size);
+
+  // Merge: uploaded fields take priority; fall back to mock household when absent.
+  const merged = useMemo(() => {
+    const m: Record<string, { value: string; source: string; confidence: number }> = {};
+    for (const f of stored) {
+      for (const [k, v] of Object.entries(f.fields)) {
+        if (!m[k]) m[k] = { value: v, source: `${f.name} · uploaded`, confidence: 0.95 };
+      }
+    }
+    return m;
+  }, [stored]);
+
+  const hasUpload = stored.length > 0;
+  const pick = (k: string, fallback: { value: string; source: string; confidence: number }) => merged[k] ?? fallback;
+
+  const grossStr = pick("gross_pay", { value: `$${hh.grossPerPeriod.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, source: "pay_stub.pdf · p.1", confidence: 0.96 });
+  const grossNum = Number(String(grossStr.value).replace(/[^0-9.]/g, "")) || hh.grossPerPeriod;
+  const freq = pick("pay_frequency", { value: hh.frequency, source: "pay_stub.pdf · p.1", confidence: 0.92 });
+  const a = annualize(grossNum, freq.value as any);
+  const sizeStr = pick("household_size", { value: String(hh.size), source: "application_summary.pdf · p.1", confidence: 0.97 });
+  const size = Number(sizeStr.value) || hh.size;
+  const t = threshold60(size);
 
   const fields = [
-    { name: "person_name", value: hh.applicant, source: "application_summary.pdf · p.1", confidence: 0.98 },
-    { name: "household_size", value: String(hh.size), source: "application_summary.pdf · p.1", confidence: 0.97 },
-    { name: "address", value: hh.address, source: "application_summary.pdf · p.1", confidence: 0.94 },
-    { name: "employer_name", value: hh.employer, source: "employment_letter.pdf · p.1", confidence: 0.93 },
-    { name: "pay_frequency", value: hh.frequency, source: "pay_stub.pdf · p.1", confidence: 0.92 },
-    { name: "gross_pay", value: `$${hh.grossPerPeriod.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, source: "pay_stub.pdf · p.1", confidence: 0.96 },
+    { name: "person_name", ...pick("person_name", { value: hh.applicant, source: "application_summary.pdf · p.1", confidence: 0.98 }) },
+    { name: "household_size", ...sizeStr },
+    { name: "address", ...pick("address", { value: hh.address, source: "application_summary.pdf · p.1", confidence: 0.94 }) },
+    { name: "employer_name", ...pick("employer_name", { value: hh.employer, source: "employment_letter.pdf · p.1", confidence: 0.93 }) },
+    { name: "pay_frequency", ...freq },
+    { name: "gross_pay", ...grossStr },
+    ...(merged["pay_date"] ? [{ name: "pay_date", ...merged["pay_date"] }] : []),
+    ...(merged["hourly_rate"] ? [{ name: "hourly_rate", ...merged["hourly_rate"] }] : []),
+    ...(merged["employment_start_date"] ? [{ name: "employment_start_date", ...merged["employment_start_date"] }] : []),
+    ...(merged["benefit_amount"] ? [{ name: "benefit_amount", ...merged["benefit_amount"] }] : []),
   ];
 
   return (
