@@ -4,9 +4,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { HOUSEHOLDS, readiness } from "@/lib/mock-data";
 import { useState } from "react";
-import { CheckCircle2, AlertTriangle, XCircle, Download, FileDown } from "lucide-react";
+import { CheckCircle2, AlertTriangle, XCircle, Download, FileDown, ChevronRight, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/packet")({
