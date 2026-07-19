@@ -64,7 +64,9 @@ function Profile() {
     ...(merged["hourly_rate"] ? [{ name: "hourly_rate", ...merged["hourly_rate"] }] : []),
     ...(merged["employment_start_date"] ? [{ name: "employment_start_date", ...merged["employment_start_date"] }] : []),
     ...(merged["benefit_amount"] ? [{ name: "benefit_amount", ...merged["benefit_amount"] }] : []),
-  ];
+    ...(merged["pay_period_start"] ? [{ name: "pay_period_start", ...merged["pay_period_start"] }] : []),
+    ...(merged["pay_period_end"] ? [{ name: "pay_period_end", ...merged["pay_period_end"] }] : []),
+  ].map((f) => ({ ...f, fromUpload: !!merged[f.name] }));
 
   return (
     <AppShell
