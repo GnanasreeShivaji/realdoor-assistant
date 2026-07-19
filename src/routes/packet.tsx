@@ -143,10 +143,17 @@ function Packet() {
           </div>
           <ul className="divide-y divide-border/60">
             {items.map((item, i) => (
-              <li key={i} className="flex items-center gap-3 px-5 py-3.5">
-                {item.status === "complete" ? <CheckCircle2 className="h-4 w-4 text-success" /> : item.status === "review" ? <AlertTriangle className="h-4 w-4 text-warning" /> : <XCircle className="h-4 w-4 text-destructive" />}
-                <span className="flex-1 text-sm capitalize">{item.label}</span>
-                <Badge variant="outline" className={`h-5 px-1.5 py-0 text-[10px] ${item.status === "complete" ? "border-success/40 bg-success/10 text-success" : item.status === "review" ? "border-warning/40 bg-warning/10 text-warning" : "border-destructive/40 bg-destructive/10 text-destructive"}`}>{item.status}</Badge>
+              <li key={i}>
+                <button
+                  type="button"
+                  onClick={() => setOpenItem(item)}
+                  className="group flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-secondary/40 focus:outline-none focus:bg-secondary/50"
+                >
+                  {item.status === "complete" ? <CheckCircle2 className="h-4 w-4 text-success" /> : item.status === "review" ? <AlertTriangle className="h-4 w-4 text-warning" /> : <XCircle className="h-4 w-4 text-destructive" />}
+                  <span className="flex-1 text-sm capitalize">{item.label}</span>
+                  <Badge variant="outline" className={`h-5 px-1.5 py-0 text-[10px] ${item.status === "complete" ? "border-success/40 bg-success/10 text-success" : item.status === "review" ? "border-warning/40 bg-warning/10 text-warning" : "border-destructive/40 bg-destructive/10 text-destructive"}`}>{item.status}</Badge>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-muted-foreground" />
+                </button>
               </li>
             ))}
           </ul>
