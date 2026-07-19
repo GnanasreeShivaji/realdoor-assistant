@@ -236,3 +236,88 @@ function StatusChip({ status }: { status: string }) {
   const tone = status === "READY FOR REVIEW" ? "border-success/40 bg-success/10 text-success" : status === "NEEDS REVIEW" ? "border-warning/40 bg-warning/10 text-warning" : "border-destructive/40 bg-destructive/10 text-destructive";
   return <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] ${tone}`}>{status}</span>;
 }
+
+type Guidance = { summary: string; checks: string[]; citations: { id: string; text: string }[] };
+
+function guidanceFor(label: string, status: string): Guidance {
+  const key = label.toLowerCase();
+  if (key.includes("gig income")) {
+    return {
+      summary: "Gig income is variable and self-reported. It requires corroboration before it can be relied on for annualization.",
+      checks: [
+        "Confirm the platform statement covers at least the most recent full pay period and matches the applicant's name.",
+        "Cross-check reported gross against deposit history (bank statement or 1099-K) for the same window.",
+        "Decide with the applicant which annualization method to use (year-to-date vs. rolling 12 months) and record it.",
+      ],
+      citations: [
+        { id: "CH-DOC-004", text: "Gig income must be corroborated by a second independent source before it is annualized." },
+        { id: "CH-DECISION-001", text: "RealDoor surfaces evidence and rule text; eligibility is decided by a qualified housing specialist." },
+      ],
+    };
+  }
+  if (key.includes("corroboration")) {
+    return {
+      summary: "A required piece of evidence is present but a second corroborating source is still needed.",
+      checks: [
+        "Ask the applicant for a bank statement, 1099, or platform earnings summary that overlaps the pay period on file.",
+        "Verify names, dates, and totals reconcile within a reasonable variance.",
+      ],
+      citations: [
+        { id: "CH-DOC-004", text: "Variable income requires an independent corroborating document." },
+      ],
+    };
+  }
+  if (key.includes("expired")) {
+    return {
+      summary: "A document on file is outside the acceptable freshness window.",
+      checks: [
+        "Request a replacement document dated within the last 60 days.",
+        "Retain the expired copy in the audit trail; do not delete it.",
+      ],
+      citations: [
+        { id: "CH-DOC-002", text: "Pay stubs and benefit letters must be dated within the last 60 days at the time of review." },
+      ],
+    };
+  }
+  if (key.includes("pay stub")) {
+    return {
+      summary: status === "complete"
+        ? "Two recent pay stubs are on file and were parsed with high confidence."
+        : "At least two recent pay stubs are required to establish current earnings.",
+      checks: [
+        "Confirm the two most recent consecutive pay periods are present.",
+        "Verify employer name, pay date, pay frequency, gross, and net are legible.",
+      ],
+      citations: [
+        { id: "CH-DOC-001", text: "Employment income requires the two most recent pay stubs." },
+        { id: "HUD-INC-002", text: "Annualize using the pay frequency shown on the stub." },
+      ],
+    };
+  }
+  if (key.includes("application summary")) {
+    return {
+      summary: status === "complete" ? "Application summary is present." : "A signed application summary is required.",
+      checks: [
+        "Confirm applicant name, household size, and address match supporting documents.",
+        "Confirm the signature and date are present.",
+      ],
+      citations: [{ id: "CH-DOC-000", text: "Every packet must include a signed application summary." }],
+    };
+  }
+  if (key.includes("employment")) {
+    return {
+      summary: status === "complete" ? "Employment or benefit verification is on file." : "A third-party verification of employment or benefits is required.",
+      checks: [
+        "Confirm the letter is on employer or agency letterhead.",
+        "Confirm start date, rate, hours, and issuing contact.",
+      ],
+      citations: [{ id: "CH-DOC-003", text: "Employment or benefit verification must come from a third party." }],
+    };
+  }
+  return {
+    summary: "Reviewer should verify this item against the source documents.",
+    checks: ["Open the linked source document.", "Confirm the extracted values match the evidence."],
+    citations: [{ id: "CH-DECISION-001", text: "RealDoor does not make eligibility determinations." }],
+  };
+}
+
