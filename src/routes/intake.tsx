@@ -13,24 +13,79 @@ export const Route = createFileRoute("/intake")({
   component: Intake,
 });
 
+type ExtractedFile = { name: string; size: number; fields: Record<string, string>; missing: string[] };
+
+const FIELD_KEYS = ["person_name", "household_size", "address", "pay_date", "pay_period_start", "pay_period_end", "pay_frequency", "gross_pay", "hourly_rate", "employer_name", "employment_start_date", "benefit_amount"] as const;
+
+const PATTERNS: Record<string, RegExp[]> = {
+  person_name: [/(?:employee|name|applicant)[:\s]+([A-Z][a-zA-Z]+\s+[A-Z][a-zA-Z]+)/i],
+  household_size: [/household\s*size[:\s]+(\d+)/i],
+  address: [/address[:\s]+([0-9]+\s+[A-Za-z0-9 .,#-]+(?:St|Ave|Rd|Blvd|Dr|Ln|Way|Ct|Pkwy)[A-Za-z0-9 .,#-]*)/i],
+  pay_date: [/pay\s*date[:\s]+([0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4})/i, /pay\s*date[:\s]+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})/i],
+  pay_period_start: [/(?:period\s*start|pay\s*period\s*start|period\s*begin)[:\s]+([0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4})/i],
+  pay_period_end: [/(?:period\s*end|pay\s*period\s*end)[:\s]+([0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4})/i],
+  pay_frequency: [/(?:pay\s*frequency|frequency)[:\s]+(weekly|bi-?weekly|semi-?monthly|monthly)/i],
+  gross_pay: [/gross\s*(?:pay|earnings|income)[:\s]+\$?([0-9,]+\.?[0-9]*)/i],
+  hourly_rate: [/(?:hourly\s*rate|rate)[:\s]+\$?([0-9]+\.?[0-9]*)/i],
+  employer_name: [/employer[:\s]+([A-Z][A-Za-z0-9 &,.'-]+(?:LLC|Inc|Corp|Ltd|Logistics|Services|Care|Company|Co\.)?)/],
+  employment_start_date: [/(?:start\s*date|hire\s*date|employment\s*start)[:\s]+([0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4})/i],
+  benefit_amount: [/benefit\s*amount[:\s]+\$?([0-9,]+\.?[0-9]*)/i],
+};
+
+async function readText(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let out = "";
+  for (let i = 0; i < bytes.length; i++) {
+    const c = bytes[i];
+    out += (c >= 32 && c < 127) || c === 10 || c === 13 ? String.fromCharCode(c) : " ";
+  }
+  return out;
+}
+
+function extractFields(text: string) {
+  const fields: Record<string, string> = {};
+  const missing: string[] = [];
+  for (const key of FIELD_KEYS) {
+    let found: string | null = null;
+    for (const rx of PATTERNS[key] ?? []) {
+      const m = text.match(rx);
+      if (m && m[1]) { found = m[1].trim().replace(/\s+/g, " "); break; }
+    }
+    if (found) fields[key] = found; else missing.push(key);
+  }
+  return { fields, missing };
+}
+
 function Intake() {
   const [selected, setSelected] = useState<string>("HH-001");
-  const [uploaded, setUploaded] = useState<{ name: string; size: number }[]>([]);
+  const [uploaded, setUploaded] = useState<ExtractedFile[]>([]);
   const [busy, setBusy] = useState(false);
   const hh = HOUSEHOLDS.find((h) => h.id === selected)!;
 
   const onFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setBusy(true);
-    const added = Array.from(files).map((f) => ({ name: f.name, size: f.size }));
-    await new Promise((r) => setTimeout(r, 900));
-    setUploaded((u) => [...u, ...added]);
+    const results: ExtractedFile[] = [];
+    for (const f of Array.from(files)) {
+      let fields: Record<string, string> = {};
+      let missing: string[] = [...FIELD_KEYS];
+      try {
+        const text = await readText(f);
+        const r = extractFields(text);
+        fields = r.fields; missing = r.missing;
+      } catch { /* noop */ }
+      results.push({ name: f.name, size: f.size, fields, missing });
+    }
+    setUploaded((u) => [...u, ...results]);
     setBusy(false);
-    toast.success(`Extracted ${added.length} document${added.length > 1 ? "s" : ""}`, { description: "Fields staged for review on the profile page." });
+    try { localStorage.setItem(`realdoor:extract:${selected}`, JSON.stringify(results)); } catch {}
+    const totalFound = results.reduce((n, r) => n + Object.keys(r.fields).length, 0);
+    toast.success(`Extracted ${results.length} document${results.length > 1 ? "s" : ""}`, { description: `${totalFound} field${totalFound === 1 ? "" : "s"} populated · ${results.reduce((n, r) => n + r.missing.length, 0)} pending review.` });
   };
 
   const stageSynthetic = () => {
-    const list = hh.documents.map((d) => ({ name: d.fileName, size: d.pages * 42_000 }));
+    const list: ExtractedFile[] = hh.documents.map((d) => ({ name: d.fileName, size: d.pages * 42_000, fields: {}, missing: [...FIELD_KEYS] }));
     setUploaded(list);
     toast.success(`Staged ${hh.id}`, { description: `${list.length} synthetic documents ready for extraction.` });
   };
@@ -69,18 +124,40 @@ function Intake() {
           </label>
 
           {uploaded.length > 0 && (
-            <div className="mt-5">
-              <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Extraction queue</div>
-              <ul className="divide-y divide-border/60 rounded-md border border-border/60">
-                {uploaded.map((f, i) => (
-                  <li key={i} className="flex items-center gap-3 px-3 py-2.5 text-sm">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span className="flex-1 truncate font-mono text-xs">{f.name}</span>
-                    <span className="text-[11px] text-muted-foreground">{(f.size / 1024).toFixed(0)} KB</span>
-                    <Badge variant="outline" className="border-success/40 bg-success/10 text-success">Extracted</Badge>
-                  </li>
-                ))}
-              </ul>
+            <div className="mt-5 space-y-4">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Extraction queue</div>
+              {uploaded.map((f, i) => {
+                const found = Object.keys(f.fields).length;
+                const total = FIELD_KEYS.length;
+                const status = found === 0 ? "unreadable" : found < total ? "needs review" : "extracted";
+                const tone = status === "extracted" ? "border-success/40 bg-success/10 text-success" : status === "needs review" ? "border-warning/40 bg-warning/10 text-warning" : "border-destructive/40 bg-destructive/10 text-destructive";
+                return (
+                  <div key={i} className="rounded-md border border-border/60">
+                    <div className="flex items-center gap-3 px-3 py-2.5 text-sm">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="flex-1 truncate font-mono text-xs">{f.name}</span>
+                      <span className="text-[11px] text-muted-foreground">{(f.size / 1024).toFixed(0)} KB · {found}/{total} fields</span>
+                      <Badge variant="outline" className={tone}>{status}</Badge>
+                    </div>
+                    {found > 0 && (
+                      <div className="grid grid-cols-1 gap-1.5 border-t border-border/60 bg-secondary/20 p-3 sm:grid-cols-2">
+                        {Object.entries(f.fields).map(([k, v]) => (
+                          <div key={k} className="flex items-baseline justify-between gap-2 rounded border border-border/50 bg-background/50 px-2 py-1 text-[11px]">
+                            <span className="font-mono text-muted-foreground">{k}</span>
+                            <span className="truncate font-medium text-foreground" title={v}>{v}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {f.missing.length > 0 && (
+                      <div className="border-t border-border/60 px-3 py-2 text-[11px] text-muted-foreground">
+                        <span className="uppercase tracking-[0.14em] text-warning">Missing · </span>
+                        <span className="font-mono">{f.missing.join(", ")}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </Card>
