@@ -1,13 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { HOUSEHOLDS, readiness } from "@/lib/mock-data";
+import { Button } from "@/components/ui/button";
+import { readiness } from "@/lib/mock-data";
+import { useDataMode, getEffectiveHouseholds } from "@/lib/data-mode";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   PieChart, Pie, Cell, AreaChart, Area, LineChart, Line, Legend,
 } from "recharts";
-import { Activity, CheckCircle2, FileWarning, Timer, TrendingUp, ShieldCheck } from "lucide-react";
+import { Activity, CheckCircle2, FileWarning, Timer, TrendingUp, ShieldCheck, UploadCloud } from "lucide-react";
 
 export const Route = createFileRoute("/analytics")({
   head: () => ({ meta: [
