@@ -90,15 +90,6 @@ function Profile() {
         </select>
       </>}
     >
-      {!hasUpload && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
-          <div>
-            <div className="font-medium text-warning">No uploaded documents for {selected} yet.</div>
-            <div className="text-xs text-muted-foreground">Showing synthetic fixture values. Upload real PDFs on Intake to populate this profile with your data.</div>
-          </div>
-          <Link to="/intake" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-secondary"><Upload className="h-3.5 w-3.5" /> Go to Intake</Link>
-        </div>
-      )}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card className="card-elevated col-span-2 p-0 overflow-hidden">
           <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
