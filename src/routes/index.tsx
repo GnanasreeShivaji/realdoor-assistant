@@ -9,6 +9,7 @@ import { useDataMode, getEffectiveHouseholds } from "@/lib/data-mode";
 import { ArrowUpRight, CheckCircle2, FileWarning, Clock3, TrendingUp, ChevronRight, UploadCloud } from "lucide-react";
 import { useState } from "react";
 import { KpiDrawer, type DrawerBucket } from "@/components/kpi-drawer";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 
 export const Route = createFileRoute("/")({ component: Dashboard });
 
