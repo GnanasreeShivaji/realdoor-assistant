@@ -103,12 +103,15 @@ function Profile() {
             {fields.map((f) => (
               <div key={f.name} className="grid grid-cols-12 items-center gap-3 px-5 py-3.5 text-sm">
                 <div className="col-span-3 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">{f.name}</div>
-                <div className="col-span-5 truncate font-medium">{f.value}</div>
+                <div className="col-span-4 truncate font-medium">{f.value}</div>
                 <div className="col-span-3 flex items-center gap-2 text-xs text-muted-foreground">
                   <FileText className="h-3.5 w-3.5" />
                   <span className="truncate">{f.source}</span>
                 </div>
-                <div className="col-span-1 flex items-center justify-end gap-1">
+                <div className="col-span-2 flex items-center justify-end gap-1.5">
+                  {f.fromUpload && (
+                    <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary h-5 px-1.5 py-0 text-[10px]">from upload</Badge>
+                  )}
                   <Badge variant="outline" className={`border h-5 px-1.5 py-0 text-[10px] ${f.confidence >= 0.9 ? "border-success/40 bg-success/10 text-success" : "border-warning/40 bg-warning/10 text-warning"}`}>
                     {Math.round(f.confidence * 100)}%
                   </Badge>
