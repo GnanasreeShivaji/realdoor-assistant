@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { HOUSEHOLDS } from "@/lib/mock-data";
 import { useState } from "react";
-import { UploadCloud, FileText, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+import { UploadCloud, FileText, CheckCircle2, AlertTriangle, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/intake")({
