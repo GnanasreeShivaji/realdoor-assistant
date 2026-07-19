@@ -145,7 +145,13 @@ function Profile() {
           <Card className="card-elevated p-5">
             <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Documents on file</div>
             <ul className="mt-3 space-y-2 text-sm">
-              {hh.documents.map((d) => (
+              {hasUpload ? stored.map((d) => (
+                <li key={d.name} className="flex items-center gap-2">
+                  <FileText className="h-3.5 w-3.5 text-primary" />
+                  <span className="flex-1 truncate font-mono text-xs">{d.name}</span>
+                  <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary h-5 px-1.5 py-0 text-[10px]">{Object.keys(d.fields).length} fields</Badge>
+                </li>
+              )) : hh.documents.map((d) => (
                 <li key={d.fileName} className="flex items-center gap-2">
                   <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="flex-1 truncate font-mono text-xs">{d.fileName}</span>
