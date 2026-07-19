@@ -124,6 +124,24 @@ function Dashboard() {
           </div>
         </Card>
       </div>
+
+      <Card className="card-elevated mt-6 p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Per household</div>
+            <h2 className="font-display text-lg font-semibold">Document completeness</h2>
+          </div>
+          <div className="hidden gap-3 text-[11px] text-muted-foreground sm:flex">
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-success" /> Captured</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-destructive/70" /> Missing</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          {totals.map(({ h, r }) => (
+            <HouseholdPie key={h.id} id={h.id} name={h.applicant} score={r.score} status={r.status} />
+          ))}
+        </div>
+      </Card>
     </AppShell>
   );
 }
