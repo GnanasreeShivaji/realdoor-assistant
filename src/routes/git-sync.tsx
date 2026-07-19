@@ -47,7 +47,7 @@ function GitSync() {
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["git-sync", owner, repo, token],
-    queryFn: () => checkSync({ owner, repo, token }),
+    queryFn: () => checkSync({ data: { owner, repo, token } }),
     enabled: shouldCheck,
   });
 
