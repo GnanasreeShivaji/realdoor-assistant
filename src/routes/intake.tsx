@@ -34,6 +34,25 @@ const PATTERNS: Record<string, RegExp[]> = {
 
 async function readText(file: File): Promise<string> {
   const buf = await file.arrayBuffer();
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".pdf")) {
+    try {
+      const pdfjs: any = await import("pdfjs-dist");
+      // @ts-ignore
+      const workerSrc = (await import("pdfjs-dist/build/pdf.worker.mjs?url")).default;
+      pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
+      const doc = await pdfjs.getDocument({ data: buf }).promise;
+      let text = "";
+      for (let p = 1; p <= doc.numPages; p++) {
+        const page = await doc.getPage(p);
+        const content = await page.getTextContent();
+        text += content.items.map((it: any) => it.str).join(" ") + "\n";
+      }
+      if (text.trim().length > 0) return text;
+    } catch (e) {
+      console.warn("pdfjs failed, falling back to raw scan", e);
+    }
+  }
   const bytes = new Uint8Array(buf);
   let out = "";
   for (let i = 0; i < bytes.length; i++) {
