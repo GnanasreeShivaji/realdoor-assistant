@@ -1,0 +1,103 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { AppShell } from "@/components/app-shell";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { HOUSEHOLDS, annualize, threshold60 } from "@/lib/mock-data";
+import { useState } from "react";
+import { Check, Pencil, FileText } from "lucide-react";
+
+export const Route = createFileRoute("/profile")({
+  head: () => ({ meta: [{ title: "Applicant Profile · RealDoor" }, { name: "description", content: "Confirm extracted fields with source evidence before packet generation." }] }),
+  component: Profile,
+});
+
+function Profile() {
+  const [selected, setSelected] = useState("HH-001");
+  const hh = HOUSEHOLDS.find((h) => h.id === selected)!;
+  const a = annualize(hh.grossPerPeriod, hh.frequency);
+  const t = threshold60(hh.size);
+
+  const fields = [
+    { name: "person_name", value: hh.applicant, source: "application_summary.pdf · p.1", confidence: 0.98 },
+    { name: "household_size", value: String(hh.size), source: "application_summary.pdf · p.1", confidence: 0.97 },
+    { name: "address", value: hh.address, source: "application_summary.pdf · p.1", confidence: 0.94 },
+    { name: "employer_name", value: hh.employer, source: "employment_letter.pdf · p.1", confidence: 0.93 },
+    { name: "pay_frequency", value: hh.frequency, source: "pay_stub.pdf · p.1", confidence: 0.92 },
+    { name: "gross_pay", value: `$${hh.grossPerPeriod.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, source: "pay_stub.pdf · p.1", confidence: 0.96 },
+  ];
+
+  return (
+    <AppShell
+      eyebrow="Step 2"
+      title="Applicant profile"
+      description="Review each extracted field alongside its source. Confirmed values are recorded to the packet audit log."
+      actions={<>
+        <select value={selected} onChange={(e) => setSelected(e.target.value)} className="rounded-md border border-border bg-background px-2 py-1.5 text-xs">
+          {HOUSEHOLDS.map((h) => <option key={h.id} value={h.id}>{h.id} · {h.applicant}</option>)}
+        </select>
+      </>}
+    >
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <Card className="card-elevated col-span-2 p-0 overflow-hidden">
+          <div className="border-b border-border/60 px-5 py-3">
+            <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Extracted fields</div>
+            <h2 className="font-display text-lg font-semibold">{hh.id} · {hh.applicant}</h2>
+          </div>
+          <div className="divide-y divide-border/60">
+            {fields.map((f) => (
+              <div key={f.name} className="grid grid-cols-12 items-center gap-3 px-5 py-3.5 text-sm">
+                <div className="col-span-3 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">{f.name}</div>
+                <div className="col-span-5 truncate font-medium">{f.value}</div>
+                <div className="col-span-3 flex items-center gap-2 text-xs text-muted-foreground">
+                  <FileText className="h-3.5 w-3.5" />
+                  <span className="truncate">{f.source}</span>
+                </div>
+                <div className="col-span-1 flex items-center justify-end gap-1">
+                  <Badge variant="outline" className={`border h-5 px-1.5 py-0 text-[10px] ${f.confidence >= 0.9 ? "border-success/40 bg-success/10 text-success" : "border-warning/40 bg-warning/10 text-warning"}`}>
+                    {Math.round(f.confidence * 100)}%
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between border-t border-border/60 bg-secondary/30 px-5 py-3">
+            <div className="text-xs text-muted-foreground">{fields.filter((f) => f.confidence >= 0.9).length} of {fields.length} auto-confirmed</div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline"><Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit field</Button>
+              <Button size="sm"><Check className="mr-1.5 h-3.5 w-3.5" /> Confirm all</Button>
+            </div>
+          </div>
+        </Card>
+
+        <div className="space-y-4">
+          <Card className="card-elevated p-5">
+            <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Calculation ledger</div>
+            <h2 className="font-display text-lg font-semibold">Annualized reference</h2>
+            <div className="mt-3 font-mono text-xs text-muted-foreground">{a.formula}</div>
+            <div className="mt-1 font-display text-3xl font-semibold">${a.annual.toLocaleString()}</div>
+            <div className="mt-4 rounded-md border border-border/60 bg-secondary/40 p-3">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">60% frozen threshold · HH size {hh.size}</div>
+              <div className="mt-1 font-mono text-lg">${t.toLocaleString()}</div>
+              <div className="mt-1 text-[11px] text-muted-foreground">Source: HUD-MTSP-002, PDF page 130</div>
+            </div>
+            <div className="mt-3 text-[11px] text-muted-foreground">Comparison shown for context only — never an eligibility decision.</div>
+          </Card>
+
+          <Card className="card-elevated p-5">
+            <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Documents on file</div>
+            <ul className="mt-3 space-y-2 text-sm">
+              {hh.documents.map((d) => (
+                <li key={d.fileName} className="flex items-center gap-2">
+                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="flex-1 truncate font-mono text-xs">{d.fileName}</span>
+                  <Badge variant="outline" className={`h-5 px-1.5 py-0 text-[10px] ${d.status === "complete" ? "border-success/40 bg-success/10 text-success" : d.status === "review" ? "border-warning/40 bg-warning/10 text-warning" : "border-destructive/40 bg-destructive/10 text-destructive"}`}>{d.status}</Badge>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
+      </div>
+    </AppShell>
+  );
+}
