@@ -172,6 +172,52 @@ function Packet() {
           </div>
         </Card>
       </div>
+
+      <Dialog open={!!openItem} onOpenChange={(o) => !o && setOpenItem(null)}>
+        <DialogContent className="max-w-lg">
+          {openItem && (() => {
+            const g = guidanceFor(openItem.label, openItem.status);
+            return (
+              <>
+                <DialogHeader>
+                  <div className="flex items-center gap-2">
+                    {openItem.status === "complete" ? <CheckCircle2 className="h-4 w-4 text-success" /> : openItem.status === "review" ? <AlertTriangle className="h-4 w-4 text-warning" /> : <XCircle className="h-4 w-4 text-destructive" />}
+                    <Badge variant="outline" className={`h-5 px-1.5 py-0 text-[10px] ${openItem.status === "complete" ? "border-success/40 bg-success/10 text-success" : openItem.status === "review" ? "border-warning/40 bg-warning/10 text-warning" : "border-destructive/40 bg-destructive/10 text-destructive"}`}>{openItem.status}</Badge>
+                  </div>
+                  <DialogTitle className="capitalize">{openItem.label}</DialogTitle>
+                  <DialogDescription>{g.summary}</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 text-sm">
+                  <section>
+                    <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">What the reviewer should check</div>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-foreground/90">
+                      {g.checks.map((c, i) => <li key={i}>{c}</li>)}
+                    </ul>
+                  </section>
+                  <section>
+                    <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Rule citations</div>
+                    <ul className="mt-2 space-y-1">
+                      {g.citations.map((c, i) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                          <BookOpen className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <span><span className="font-medium text-foreground">{c.id}</span> — {c.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                  <div className="rounded-md border border-warning/30 bg-warning/5 p-3 text-[11px] text-muted-foreground">
+                    RealDoor does not decide eligibility. This panel surfaces evidence and rules so a qualified housing specialist can decide.
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setOpenItem(null)}>Close</Button>
+                  <Button onClick={() => { setOpenItem(null); toast.success("Flagged for reviewer", { description: `${openItem.label} added to reviewer notes.` }); }}>Flag for reviewer</Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
