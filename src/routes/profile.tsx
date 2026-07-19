@@ -64,14 +64,14 @@ function Profile() {
   const freq = pick("pay_frequency", freqFallback);
   const a = annualize(grossNum, (freq.value as any) || hh.frequency);
 
-  const sizeFallback = isUploaded ? { value: String(hh.size), source: "uploaded", confidence: 0.9 } : { value: String(hh.size), source: "application_summary.pdf · p.1", confidence: 0.97 };
+  const sizeFallback = isUploaded ? emptyFallback("awaiting upload") : { value: String(hh.size), source: "application_summary.pdf · p.1", confidence: 0.97 };
   const sizeStr = pick("household_size", sizeFallback);
   const size = Number(sizeStr.value) || hh.size;
   const t = threshold60(size);
 
-  const nameFallback = isUploaded ? { value: hh.applicant, source: "uploaded", confidence: 0.9 } : { value: hh.applicant, source: "application_summary.pdf · p.1", confidence: 0.98 };
-  const addrFallback = isUploaded ? { value: hh.address, source: "uploaded", confidence: 0.9 } : { value: hh.address, source: "application_summary.pdf · p.1", confidence: 0.94 };
-  const emplFallback = isUploaded ? { value: hh.employer, source: "uploaded", confidence: 0.9 } : { value: hh.employer, source: "employment_letter.pdf · p.1", confidence: 0.93 };
+  const nameFallback = isUploaded ? emptyFallback("awaiting upload") : { value: hh.applicant, source: "application_summary.pdf · p.1", confidence: 0.98 };
+  const addrFallback = isUploaded ? emptyFallback("awaiting upload") : { value: hh.address, source: "application_summary.pdf · p.1", confidence: 0.94 };
+  const emplFallback = isUploaded ? emptyFallback("not found in uploads") : { value: hh.employer, source: "employment_letter.pdf · p.1", confidence: 0.93 };
 
   const fields = [
     { name: "person_name", ...pick("person_name", nameFallback) },
