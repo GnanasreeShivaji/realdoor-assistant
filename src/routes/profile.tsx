@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { annualize, threshold60 } from "@/lib/mock-data";
 import { useDataMode, getEffectiveHouseholds, loadStoredFiles } from "@/lib/data-mode";
 import { useEffect, useMemo, useState } from "react";
-import { Check, Pencil, FileText, UploadCloud } from "lucide-react";
+import { Check, Pencil, FileText, UploadCloud, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/profile")({
   head: () => ({ meta: [{ title: "Applicant Profile · RealDoor" }, { name: "description", content: "Confirm extracted fields with source evidence before packet generation." }] }),
@@ -25,6 +27,19 @@ function Profile() {
   }, [mode, households.length]);
 
   const hh = households.find((h) => h.id === selected);
+
+  const [confirmed, setConfirmed] = useState(false);
+  useEffect(() => {
+    if (!hh) return;
+    setConfirmed(localStorage.getItem(`realdoor:confirmed:${hh.id}`) === "1");
+  }, [hh?.id]);
+  const doConfirm = () => {
+    if (!hh) return;
+    localStorage.setItem(`realdoor:confirmed:${hh.id}`, "1");
+    setConfirmed(true);
+    toast.success("All fields confirmed", { description: `${hh.id} · ${hh.applicant} is locked for packet compile.` });
+  };
+
 
   const stored = useMemo(() => (hh ? loadStoredFiles(hh.id) : []), [hh?.id, mode]);
   const merged = useMemo(() => {
@@ -137,13 +152,22 @@ function Profile() {
             ))}
           </div>
           <div className="flex items-center justify-between border-t border-border/60 bg-secondary/30 px-5 py-3">
-            <div className="text-xs text-muted-foreground">{fields.filter((f) => f.confidence >= 0.9).length} of {fields.length} auto-confirmed</div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              {confirmed ? (
+                <><CheckCircle2 className="h-3.5 w-3.5 text-success" /> <span className="text-success">Confirmed &amp; locked for packet compile</span></>
+              ) : (
+                <span>{fields.filter((f) => f.confidence >= 0.9).length} of {fields.length} auto-confirmed</span>
+              )}
+            </div>
             <div className="flex gap-2">
-              <Button size="sm" variant="outline"><Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit field</Button>
-              <Button size="sm"><Check className="mr-1.5 h-3.5 w-3.5" /> Confirm all</Button>
+              <Button size="sm" variant="outline" disabled={confirmed}><Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit field</Button>
+              <Button size="sm" onClick={doConfirm} disabled={confirmed}>
+                <Check className="mr-1.5 h-3.5 w-3.5" /> {confirmed ? "Confirmed" : "Confirm all"}
+              </Button>
             </div>
           </div>
         </Card>
+
 
         <div className="space-y-4">
           <Card className="card-elevated p-5">

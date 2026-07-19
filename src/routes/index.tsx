@@ -7,8 +7,11 @@ import { Progress } from "@/components/ui/progress";
 import { readiness, annualize, threshold60 } from "@/lib/mock-data";
 import { useDataMode, getEffectiveHouseholds } from "@/lib/data-mode";
 import { ArrowUpRight, CheckCircle2, FileWarning, Clock3, TrendingUp, ChevronRight, UploadCloud } from "lucide-react";
+import { useState } from "react";
+import { KpiDrawer, type DrawerBucket } from "@/components/kpi-drawer";
 
 export const Route = createFileRoute("/")({ component: Dashboard });
+
 
 function Dashboard() {
   const [mode] = useDataMode();
@@ -39,7 +42,9 @@ function Dashboard() {
   const needsReview = totals.filter((t) => t.r.status === "NEEDS REVIEW").length;
   const incomplete = totals.filter((t) => t.r.status === "INCOMPLETE").length;
   const avgScore = Math.round(totals.reduce((s, t) => s + t.r.score, 0) / totals.length);
+  const [drawer, setDrawer] = useState<DrawerBucket | null>(null);
   void isUploaded;
+
 
   return (
     <AppShell
@@ -54,11 +59,13 @@ function Dashboard() {
       }
     >
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiTile label="Ready for review" value={String(ready)} sub={`${HOUSEHOLDS.length} active households`} tone="success" icon={<CheckCircle2 className="h-4 w-4" />} />
-        <KpiTile label="Needs review" value={String(needsReview)} sub="Reviewer attention" tone="warning" icon={<FileWarning className="h-4 w-4" />} />
-        <KpiTile label="Incomplete" value={String(incomplete)} sub="Awaiting documents" tone="destructive" icon={<Clock3 className="h-4 w-4" />} />
-        <KpiTile label="Avg completeness" value={`${avgScore}%`} sub="Across active portfolio" tone="primary" icon={<TrendingUp className="h-4 w-4" />} />
+        <KpiTile onClick={() => setDrawer("ready")} label="Ready for review" value={String(ready)} sub={`${HOUSEHOLDS.length} active households`} tone="success" icon={<CheckCircle2 className="h-4 w-4" />} />
+        <KpiTile onClick={() => setDrawer("needs_review")} label="Needs review" value={String(needsReview)} sub="Reviewer attention" tone="warning" icon={<FileWarning className="h-4 w-4" />} />
+        <KpiTile onClick={() => setDrawer("incomplete")} label="Incomplete" value={String(incomplete)} sub="Awaiting documents" tone="destructive" icon={<Clock3 className="h-4 w-4" />} />
+        <KpiTile onClick={() => setDrawer("avg")} label="Avg completeness" value={`${avgScore}%`} sub="Across active portfolio" tone="primary" icon={<TrendingUp className="h-4 w-4" />} />
       </div>
+
+      <KpiDrawer open={drawer !== null} bucket={drawer} households={HOUSEHOLDS} onClose={() => setDrawer(null)} />
 
       <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card className="card-elevated col-span-2 p-0 overflow-hidden">
@@ -120,7 +127,7 @@ function Dashboard() {
   );
 }
 
-function KpiTile({ label, value, sub, tone, icon }: { label: string; value: string; sub: string; tone: "success" | "warning" | "destructive" | "primary"; icon: React.ReactNode }) {
+function KpiTile({ label, value, sub, tone, icon, onClick }: { label: string; value: string; sub: string; tone: "success" | "warning" | "destructive" | "primary"; icon: React.ReactNode; onClick?: () => void }) {
   const toneMap = {
     success: "text-success bg-success/10 ring-success/30",
     warning: "text-warning bg-warning/10 ring-warning/30",
@@ -128,16 +135,22 @@ function KpiTile({ label, value, sub, tone, icon }: { label: string; value: stri
     primary: "text-primary bg-primary/10 ring-primary/30",
   }[tone];
   return (
-    <Card className="card-elevated p-5">
-      <div className="flex items-center justify-between">
-        <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{label}</div>
-        <div className={`grid h-7 w-7 place-items-center rounded-md ring-1 ${toneMap}`}>{icon}</div>
-      </div>
-      <div className="mt-3 font-display text-3xl font-semibold tracking-tight">{value}</div>
-      <div className="mt-1 text-xs text-muted-foreground">{sub}</div>
-    </Card>
+    <button type="button" onClick={onClick} className="text-left focus:outline-none">
+      <Card className="card-elevated group cursor-pointer p-5 transition hover:border-primary/40 hover:shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{label}</div>
+          <div className={`grid h-7 w-7 place-items-center rounded-md ring-1 ${toneMap}`}>{icon}</div>
+        </div>
+        <div className="mt-3 font-display text-3xl font-semibold tracking-tight">{value}</div>
+        <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+          <span>{sub}</span>
+          <span className="text-[10px] uppercase tracking-wider text-primary opacity-0 transition group-hover:opacity-100">View →</span>
+        </div>
+      </Card>
+    </button>
   );
 }
+
 
 function Feed({ dot, children }: { dot: "success" | "warning" | "destructive" | "primary" | "muted"; children: React.ReactNode }) {
   const c = { success: "bg-success", warning: "bg-warning", destructive: "bg-destructive", primary: "bg-primary", muted: "bg-muted-foreground" }[dot];

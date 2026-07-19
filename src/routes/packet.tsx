@@ -5,11 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { readiness } from "@/lib/mock-data";
-import { useDataMode, getEffectiveHouseholds } from "@/lib/data-mode";
+import { readiness, annualize, threshold60 } from "@/lib/mock-data";
+import { useDataMode, getEffectiveHouseholds, loadStoredFiles } from "@/lib/data-mode";
 import { useEffect, useState } from "react";
 import { CheckCircle2, AlertTriangle, XCircle, Download, FileDown, ChevronRight, BookOpen, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
 
 export const Route = createFileRoute("/packet")({
   head: () => ({ meta: [{ title: "Application Packet · RealDoor" }, { name: "description", content: "Assemble a reviewer-safe packet: extracted fields, source references, checklist, and audit log." }] }),
@@ -72,49 +75,203 @@ function Packet() {
     { ts: new Date().toISOString(), event: "PACKET_GENERATED", household: hh.id },
   ].map((e) => JSON.stringify(e)).join("\n");
 
-  const buildPdfText = () => {
-    const lines = [
-      "RealDoor — Application Readiness Packet",
-      `Reference: RD-${hh.id}`,
-      `Generated: ${new Date().toISOString()}`,
-      "",
-      "REVIEWER NOTICE: Document completeness only. No eligibility determination.",
-      "",
-      `Applicant: ${hh.applicant}`,
-      `Address: ${hh.address}`,
-      `Household size: ${hh.size}`,
-      `Employer: ${hh.employer}`,
-      "",
-      `Readiness: ${r.score}% — ${r.status}`,
-      `Present: ${r.present}   Missing: ${r.missing}   Review: ${r.review}`,
-      "",
-      "Checklist:",
-      ...items.map((i) => `  [${i.status.toUpperCase()}] ${i.label}`),
-      "",
-      "Documents:",
-      ...hh.documents.map((d) => `  - ${d.fileName} (${d.documentType}) — ${d.status} @ ${(d.confidence * 100).toFixed(0)}%`),
-    ].join("\n");
-    // Minimal single-page PDF wrapping the text so the file opens as a real PDF.
-    const escaped = lines.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
-    const stream = `BT /F1 10 Tf 40 760 Td 12 TL (${escaped.split("\n").join(") Tj T* (")}) Tj ET`;
-    const objs = [
-      "1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj",
-      "2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj",
-      "3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Resources<</Font<</F1 5 0 R>>>>/Contents 4 0 R>>endobj",
-      `4 0 obj<</Length ${stream.length}>>stream\n${stream}\nendstream endobj`,
-      "5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj",
+  const buildPdf = (): Blob => {
+    const doc = new jsPDF({ unit: "pt", format: "letter" });
+    const W = doc.internal.pageSize.getWidth();
+    const M = 48;
+    const a = annualize(hh.grossPerPeriod, hh.frequency);
+    const t60 = threshold60(hh.size);
+    const storedFiles = loadStoredFiles(hh.id);
+    const isConfirmed = typeof localStorage !== "undefined" && localStorage.getItem(`realdoor:confirmed:${hh.id}`) === "1";
+
+    // Top rule
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, W, 68, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("REALDOOR", M, 32);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text("Application Readiness Packet · Reviewer copy", M, 48);
+    doc.text(`Ref  RD-${hh.id}`, W - M, 32, { align: "right" });
+    doc.text(`Prepared  ${new Date().toLocaleString()}`, W - M, 48, { align: "right" });
+
+    // Status badge strip
+    const statusColor: [number, number, number] = r.status === "READY FOR REVIEW" ? [22, 163, 74] : r.status === "NEEDS REVIEW" ? [217, 119, 6] : [220, 38, 38];
+    doc.setFillColor(...statusColor);
+    doc.rect(0, 68, W, 4, "F");
+
+    let y = 100;
+    doc.setTextColor(15, 23, 42);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("APPLICANT", M, y);
+    doc.setDrawColor(226, 232, 240);
+    doc.line(M, y + 4, W - M, y + 4);
+
+    y += 22;
+    doc.setFontSize(20);
+    doc.text(hh.applicant, M, y);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(71, 85, 105);
+    y += 16;
+    doc.text(hh.address, M, y);
+    y += 24;
+
+    // Facts grid
+    const facts: [string, string][] = [
+      ["Household size", String(hh.size)],
+      ["Pay frequency", hh.frequency],
+      ["Employer", hh.employer],
+      ["Gross per period", `$${hh.grossPerPeriod.toLocaleString(undefined, { minimumFractionDigits: 2 })}`],
+      ["Annualized reference", `$${a.annual.toLocaleString()}`],
+      ["60% frozen ref (HH " + hh.size + ")", `$${t60.toLocaleString()}`],
     ];
-    let pdf = "%PDF-1.4\n";
-    const offsets: number[] = [];
-    for (const o of objs) { offsets.push(pdf.length); pdf += o + "\n"; }
-    const xref = pdf.length;
-    pdf += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n`;
-    for (const off of offsets) pdf += `${off.toString().padStart(10, "0")} 00000 n \n`;
-    pdf += `trailer<</Size ${objs.length + 1}/Root 1 0 R>>\nstartxref\n${xref}\n%%EOF`;
-    return pdf;
+    const col = (W - M * 2) / 3;
+    facts.forEach((f, i) => {
+      const cx = M + (i % 3) * col;
+      const cy = y + Math.floor(i / 3) * 40;
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text(f[0].toUpperCase(), cx, cy);
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.setFont("helvetica", "bold");
+      doc.text(f[1], cx, cy + 14);
+      doc.setFont("helvetica", "normal");
+    });
+    y += 90;
+
+    // Readiness status box
+    doc.setFillColor(statusColor[0], statusColor[1], statusColor[2]);
+    doc.setDrawColor(statusColor[0], statusColor[1], statusColor[2]);
+    doc.roundedRect(M, y, W - M * 2, 46, 4, 4, "S");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text("READINESS STATUS", M + 12, y + 16);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...statusColor);
+    doc.text(`${r.status} · ${r.score}% complete`, M + 12, y + 34);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Present ${r.present}   Missing ${r.missing}   Review ${r.review}`, W - M - 12, y + 30, { align: "right" });
+    y += 62;
+
+    // Missing / needs-review section — the meat
+    const missingItems = items.filter((i) => i.status !== "complete");
+    if (missingItems.length > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.text("OUTSTANDING FOR REVIEWER", M, y);
+      doc.setDrawColor(226, 232, 240);
+      doc.line(M, y + 4, W - M, y + 4);
+      y += 8;
+      autoTable(doc, {
+        startY: y + 4,
+        theme: "plain",
+        head: [["Item", "Status", "Action required"]],
+        body: missingItems.map((i) => [
+          i.label,
+          i.status.toUpperCase(),
+          i.status === "missing" ? "Applicant must supply this document" : "Reviewer verification required before packet compile",
+        ]),
+        styles: { font: "helvetica", fontSize: 9, cellPadding: { top: 6, right: 8, bottom: 6, left: 8 }, textColor: [30, 41, 59] },
+        headStyles: { fillColor: [241, 245, 249], textColor: [71, 85, 105], fontStyle: "bold", fontSize: 8 },
+        columnStyles: {
+          0: { cellWidth: 170 },
+          1: { cellWidth: 70, fontStyle: "bold", textColor: r.status === "INCOMPLETE" ? [220, 38, 38] : [217, 119, 6] },
+        },
+        margin: { left: M, right: M },
+      });
+      // @ts-expect-error autotable adds lastAutoTable
+      y = doc.lastAutoTable.finalY + 20;
+    }
+
+    // Documents on file
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    doc.text("DOCUMENTS ON FILE", M, y);
+    doc.line(M, y + 4, W - M, y + 4);
+    autoTable(doc, {
+      startY: y + 8,
+      theme: "plain",
+      head: [["File", "Type", "Status", "Confidence"]],
+      body: (storedFiles.length > 0 ? storedFiles.map((f) => [f.name, "uploaded", f.missing.length ? "review" : "complete", f.missing.length ? "72%" : "95%"]) : hh.documents.map((d) => [d.fileName, d.documentType.replaceAll("_", " "), d.status, `${Math.round(d.confidence * 100)}%`])),
+      styles: { font: "helvetica", fontSize: 9, cellPadding: { top: 6, right: 8, bottom: 6, left: 8 }, textColor: [30, 41, 59] },
+      headStyles: { fillColor: [241, 245, 249], textColor: [71, 85, 105], fontStyle: "bold", fontSize: 8 },
+      margin: { left: M, right: M },
+    });
+    // @ts-expect-error autotable adds lastAutoTable
+    y = doc.lastAutoTable.finalY + 20;
+
+    // Calculation ledger
+    if (y > 660) { doc.addPage(); y = 60; }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    doc.text("CALCULATION LEDGER", M, y);
+    doc.line(M, y + 4, W - M, y + 4);
+    y += 20;
+    doc.setFont("courier", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(30, 41, 59);
+    doc.text(`Annualized      ${a.formula} = $${a.annual.toLocaleString()}`, M, y);
+    y += 14;
+    doc.text(`60% ref (HH ${hh.size})   $${t60.toLocaleString()}  · HUD-MTSP-002, PDF page 130`, M, y);
+    y += 14;
+    doc.text(`Δ vs 60% ref    ${a.annual > t60 ? "+" : ""}$${(a.annual - t60).toLocaleString()}`, M, y);
+    y += 22;
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text("Comparison shown for context only. RealDoor does not decide eligibility.", M, y);
+    y += 24;
+
+    // Confirmation footer
+    if (isConfirmed) {
+      doc.setFillColor(220, 252, 231);
+      doc.setDrawColor(22, 163, 74);
+      doc.roundedRect(M, y, W - M * 2, 26, 4, 4, "FD");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(22, 101, 52);
+      doc.text("✓  Fields confirmed by case worker", M + 10, y + 17);
+      y += 40;
+    }
+
+    // Page footer with boundary notice on every page
+    const pages = doc.getNumberOfPages();
+    for (let p = 1; p <= pages; p++) {
+      doc.setPage(p);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      doc.text("Document completeness only · No eligibility determination · Every value traces to a source document.", M, 782);
+      doc.text(`Page ${p} / ${pages}`, W - M, 782, { align: "right" });
+    }
+
+    return doc.output("blob");
   };
 
-  const downloadPdf = () => { triggerDownload(`RealDoor_${hh.id}.pdf`, buildPdfText(), "application/pdf"); toast.success("Reviewer PDF downloaded"); };
+  const downloadPdf = () => {
+    const blob = buildPdf();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `RealDoor_${hh.id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Reviewer PDF downloaded");
+  };
+
   const downloadJson = () => { triggerDownload(`RealDoor_${hh.id}.json`, buildJson(), "application/json"); toast.success("Machine JSON downloaded"); };
   const downloadJsonl = () => { triggerDownload(`RealDoor_${hh.id}_audit.jsonl`, buildJsonl(), "application/x-ndjson"); toast.success("Audit trail downloaded"); };
   const generate = () => { downloadPdf(); downloadJson(); downloadJsonl(); };
