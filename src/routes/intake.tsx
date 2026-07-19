@@ -124,18 +124,40 @@ function Intake() {
           </label>
 
           {uploaded.length > 0 && (
-            <div className="mt-5">
-              <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Extraction queue</div>
-              <ul className="divide-y divide-border/60 rounded-md border border-border/60">
-                {uploaded.map((f, i) => (
-                  <li key={i} className="flex items-center gap-3 px-3 py-2.5 text-sm">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span className="flex-1 truncate font-mono text-xs">{f.name}</span>
-                    <span className="text-[11px] text-muted-foreground">{(f.size / 1024).toFixed(0)} KB</span>
-                    <Badge variant="outline" className="border-success/40 bg-success/10 text-success">Extracted</Badge>
-                  </li>
-                ))}
-              </ul>
+            <div className="mt-5 space-y-4">
+              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Extraction queue</div>
+              {uploaded.map((f, i) => {
+                const found = Object.keys(f.fields).length;
+                const total = FIELD_KEYS.length;
+                const status = found === 0 ? "unreadable" : found < total ? "needs review" : "extracted";
+                const tone = status === "extracted" ? "border-success/40 bg-success/10 text-success" : status === "needs review" ? "border-warning/40 bg-warning/10 text-warning" : "border-destructive/40 bg-destructive/10 text-destructive";
+                return (
+                  <div key={i} className="rounded-md border border-border/60">
+                    <div className="flex items-center gap-3 px-3 py-2.5 text-sm">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="flex-1 truncate font-mono text-xs">{f.name}</span>
+                      <span className="text-[11px] text-muted-foreground">{(f.size / 1024).toFixed(0)} KB · {found}/{total} fields</span>
+                      <Badge variant="outline" className={tone}>{status}</Badge>
+                    </div>
+                    {found > 0 && (
+                      <div className="grid grid-cols-1 gap-1.5 border-t border-border/60 bg-secondary/20 p-3 sm:grid-cols-2">
+                        {Object.entries(f.fields).map(([k, v]) => (
+                          <div key={k} className="flex items-baseline justify-between gap-2 rounded border border-border/50 bg-background/50 px-2 py-1 text-[11px]">
+                            <span className="font-mono text-muted-foreground">{k}</span>
+                            <span className="truncate font-medium text-foreground" title={v}>{v}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {f.missing.length > 0 && (
+                      <div className="border-t border-border/60 px-3 py-2 text-[11px] text-muted-foreground">
+                        <span className="uppercase tracking-[0.14em] text-warning">Missing · </span>
+                        <span className="font-mono">{f.missing.join(", ")}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </Card>
