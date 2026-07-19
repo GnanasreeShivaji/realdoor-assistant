@@ -132,33 +132,80 @@ function CompletenessView({ households }: { households: Household[] }) {
     return { name: rt.label, captured, missing: households.length - captured };
   });
 
-  const totals = households.map((h) => readiness(h));
+  const perHousehold = households.map((h) => {
+    const r = readiness(h);
+    const present: string[] = [];
+    const missing: string[] = [];
+    for (const rt of REQUIRED_TYPES) {
+      const supplied = h.documents.some((d) =>
+        rt.key === "employment_letter"
+          ? ["employment_letter", "benefit_letter", "gig_statement"].includes(d.documentType)
+          : d.documentType === rt.key
+      );
+      (supplied ? present : missing).push(rt.label);
+    }
+    return { h, r, present, missing };
+  });
+
+  const totals = perHousehold.map((p) => p.r);
   const avg = Math.round(totals.reduce((s, r) => s + r.score, 0) / Math.max(1, totals.length));
-  const donut = [
-    { name: "Captured", value: avg },
-    { name: "Outstanding", value: 100 - avg },
-  ];
   const COLORS = ["hsl(var(--primary))", "hsl(var(--muted))"];
 
   return (
     <div className="mt-5 space-y-6">
       <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
         <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Portfolio completeness</div>
-        <div className="mt-2 grid grid-cols-2 items-center gap-3">
-          <div>
-            <div className="font-display text-5xl font-semibold text-gradient">{avg}%</div>
-            <div className="mt-1 text-xs text-muted-foreground">Weighted average across {households.length} household{households.length === 1 ? "" : "s"}</div>
-          </div>
-          <div className="h-32">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={donut} innerRadius={38} outerRadius={56} paddingAngle={2} dataKey="value" stroke="none">
-                  {donut.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
-                </Pie>
-                <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 6, fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+        <div className="mt-2 flex items-baseline gap-3">
+          <div className="font-display text-5xl font-semibold text-gradient">{avg}%</div>
+          <div className="text-xs text-muted-foreground">Weighted average across {households.length} household{households.length === 1 ? "" : "s"}</div>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border/60 bg-secondary/20 p-4">
+        <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Per household</div>
+        <div className="mt-1 font-display text-lg font-semibold">Completeness breakdown</div>
+        <div className="mt-3 space-y-2">
+          {perHousehold.map(({ h, r, present, missing }) => {
+            const donut = [
+              { name: "Captured", value: r.score },
+              { name: "Missing", value: 100 - r.score },
+            ];
+            return (
+              <Link
+                key={h.id}
+                to="/profile"
+                className="flex items-center gap-3 rounded-md border border-border/60 bg-secondary/30 p-3 transition hover:border-primary/40 hover:bg-secondary/50"
+              >
+                <div className="h-14 w-14 shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={donut} innerRadius={16} outerRadius={26} paddingAngle={2} dataKey="value" stroke="none">
+                        {donut.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <div className="truncate text-sm font-medium">{h.applicant}</div>
+                    <Badge variant="outline" className="h-5 px-1.5 py-0 text-[10px]">HH-{h.id.split("-")[1]}</Badge>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {present.map((p) => (
+                      <span key={p} className="rounded bg-success/15 px-1.5 py-0.5 text-[10px] text-success ring-1 ring-success/25">✓ {p}</span>
+                    ))}
+                    {missing.map((m) => (
+                      <span key={m} className="rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] text-destructive ring-1 ring-destructive/25">✗ {m}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-mono text-sm">{r.score}%</div>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{present.length}/{REQUIRED_TYPES.length}</div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </div>
 
@@ -177,14 +224,6 @@ function CompletenessView({ households }: { households: Household[] }) {
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <ul className="mt-2 space-y-1 text-xs">
-          {perType.map((p) => (
-            <li key={p.name} className="flex items-center justify-between">
-              <span className="text-muted-foreground">{p.name}</span>
-              <span className="font-mono">{p.captured} / {households.length}</span>
-            </li>
-          ))}
-        </ul>
       </div>
 
       <p className="text-[11px] text-muted-foreground">
