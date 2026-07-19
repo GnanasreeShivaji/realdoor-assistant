@@ -109,6 +109,18 @@ function Intake() {
     toast.success(`Staged ${hh.id}`, { description: `${list.length} synthetic documents ready for extraction.` });
   };
 
+  const removeFile = (name: string) => {
+    const next = uploaded.filter((f) => f.name !== name);
+    setUploaded(next);
+    if (next.length === 0) localStorage.removeItem(`realdoor:extract:${selected}`);
+    else localStorage.setItem(`realdoor:extract:${selected}`, JSON.stringify(next));
+  };
+
+  const clearAll = () => {
+    setUploaded([]);
+    localStorage.removeItem(`realdoor:extract:${selected}`);
+  };
+
   return (
     <AppShell
       eyebrow="Step 1"
