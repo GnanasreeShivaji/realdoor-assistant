@@ -3,10 +3,11 @@ import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { annualize, threshold60 } from "@/lib/mock-data";
+import { annualize, threshold60, readiness, completenessBreakdown } from "@/lib/mock-data";
 import { useDataMode, getEffectiveHouseholds, loadStoredFiles } from "@/lib/data-mode";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Pencil, FileText, UploadCloud, CheckCircle2 } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
 
 
