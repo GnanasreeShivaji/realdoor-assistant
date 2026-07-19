@@ -44,16 +44,6 @@ function Profile() {
   const hasUpload = stored.length > 0;
   const pick = (k: string, fallback: { value: string; source: string; confidence: number }) => merged[k] ?? fallback;
 
-  const removeDoc = (name: string) => {
-    const next = stored.filter((d) => d.name !== name);
-    setStored(next);
-    if (next.length === 0) localStorage.removeItem(`realdoor:extract:${selected}`);
-    else localStorage.setItem(`realdoor:extract:${selected}`, JSON.stringify(next));
-  };
-  const clearAll = () => {
-    setStored([]);
-    localStorage.removeItem(`realdoor:extract:${selected}`);
-  };
 
   const grossStr = pick("gross_pay", { value: `$${hh.grossPerPeriod.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, source: "pay_stub.pdf · p.1", confidence: 0.96 });
   const grossNum = Number(String(grossStr.value).replace(/[^0-9.]/g, "")) || hh.grossPerPeriod;
