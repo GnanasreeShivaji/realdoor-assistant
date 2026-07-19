@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { readiness, annualize, threshold60 } from "@/lib/mock-data";
+import { readiness, annualize, threshold60, completenessBreakdown, type Household } from "@/lib/mock-data";
 import { useDataMode, getEffectiveHouseholds } from "@/lib/data-mode";
 import { ArrowUpRight, CheckCircle2, FileWarning, Clock3, TrendingUp, ChevronRight, UploadCloud } from "lucide-react";
 import { useState } from "react";
