@@ -136,9 +136,9 @@ function Dashboard() {
             <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-destructive/70" /> Missing</span>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {totals.map(({ h, r }) => (
-            <HouseholdPie key={h.id} id={h.id} name={h.applicant} score={r.score} status={r.status} />
+            <HouseholdPie key={h.id} h={h} score={r.score} status={r.status} />
           ))}
         </div>
       </Card>
