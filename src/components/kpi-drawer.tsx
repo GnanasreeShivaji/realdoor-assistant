@@ -132,25 +132,11 @@ function CompletenessView({ households }: { households: Household[] }) {
     return { name: rt.label, captured, missing: households.length - captured };
   });
 
-  const perHousehold = households.map((h) => {
-    const r = readiness(h);
-    const present: string[] = [];
-    const missing: string[] = [];
-    for (const rt of REQUIRED_TYPES) {
-      const supplied = h.documents.some((d) =>
-        rt.key === "employment_letter"
-          ? ["employment_letter", "benefit_letter", "gig_statement"].includes(d.documentType)
-          : d.documentType === rt.key
-      );
-      (supplied ? present : missing).push(rt.label);
-    }
-    return { h, r, present, missing };
-  });
-
-  const totals = perHousehold.map((p) => p.r);
-  const avg = Math.round(totals.reduce((s, r) => s + r.score, 0) / Math.max(1, totals.length));
+  const scores = households.map((h) => readiness(h).score);
+  const avg = Math.round(scores.reduce((s, v) => s + v, 0) / Math.max(1, scores.length));
   const CAPTURED = "var(--success)";
   const MISSING = "var(--destructive)";
+
 
   return (
     <div className="mt-5 space-y-6">
