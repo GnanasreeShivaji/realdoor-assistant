@@ -15,6 +15,7 @@ const WORKSPACE = [
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
 ];
 const SYSTEM = [
+  { title: "Git sync", url: "/git-sync", icon: GitBranch },
   { title: "Audit history", url: "/history", icon: History },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
