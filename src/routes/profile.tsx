@@ -193,7 +193,7 @@ function Profile() {
 function CompletenessCard({ hh }: { hh: ReturnType<typeof getEffectiveHouseholds>[number] }) {
   const r = readiness(hh);
   const { present, missing, total } = completenessBreakdown(hh);
-  const tone = r.status === "READY FOR REVIEW" ? "var(--success)" : r.status === "NEEDS REVIEW" ? "var(--warning)" : "var(--destructive)";
+  const tone = "var(--success)";
   const data = [
     { name: "Captured", value: present.length },
     { name: "Missing", value: missing.length },
