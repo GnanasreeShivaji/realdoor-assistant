@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, FileInput, UserSquare2, BookOpenText, PackageCheck, History, Settings, ShieldCheck, BarChart3 } from "lucide-react";
+import { LayoutDashboard, FileInput, UserSquare2, BookOpenText, PackageCheck, History, Settings, ShieldCheck, BarChart3, GitBranch } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
   SidebarHeader, SidebarFooter, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
