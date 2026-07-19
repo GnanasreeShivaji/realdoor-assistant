@@ -4,17 +4,42 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { HOUSEHOLDS, readiness, annualize, threshold60 } from "@/lib/mock-data";
-import { ArrowUpRight, CheckCircle2, FileWarning, Clock3, TrendingUp, ChevronRight } from "lucide-react";
+import { readiness, annualize, threshold60 } from "@/lib/mock-data";
+import { useDataMode, getEffectiveHouseholds } from "@/lib/data-mode";
+import { ArrowUpRight, CheckCircle2, FileWarning, Clock3, TrendingUp, ChevronRight, UploadCloud } from "lucide-react";
 
 export const Route = createFileRoute("/")({ component: Dashboard });
 
 function Dashboard() {
+  const [mode] = useDataMode();
+  const HOUSEHOLDS = getEffectiveHouseholds(mode);
+  const isUploaded = mode === "uploaded";
+
+  if (HOUSEHOLDS.length === 0) {
+    return (
+      <AppShell
+        eyebrow="My uploads"
+        title="Application readiness overview"
+        description="This workspace shows only households built from your uploaded documents."
+      >
+        <Card className="card-elevated p-10 text-center">
+          <UploadCloud className="mx-auto h-10 w-10 text-primary" />
+          <h3 className="mt-3 font-display text-xl font-semibold">No uploaded households yet</h3>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+            You're in <span className="font-mono text-primary">My uploads</span> mode. Synthetic HH-001…HH-006 fixtures are hidden. Upload documents to populate this dashboard.
+          </p>
+          <Link to="/intake"><Button className="mt-5 gap-1.5"><UploadCloud className="h-4 w-4" /> Go to intake</Button></Link>
+        </Card>
+      </AppShell>
+    );
+  }
+
   const totals = HOUSEHOLDS.map((h) => ({ h, r: readiness(h) }));
   const ready = totals.filter((t) => t.r.status === "READY FOR REVIEW").length;
   const needsReview = totals.filter((t) => t.r.status === "NEEDS REVIEW").length;
   const incomplete = totals.filter((t) => t.r.status === "INCOMPLETE").length;
   const avgScore = Math.round(totals.reduce((s, t) => s + t.r.score, 0) / totals.length);
+  void isUploaded;
 
   return (
     <AppShell
