@@ -154,9 +154,9 @@ function Packet() {
           <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Downloads</div>
           <h2 className="font-display text-lg font-semibold">Packet artifacts</h2>
           <div className="mt-4 space-y-2">
-            <Button variant="outline" className="w-full justify-start" onClick={generate}><Download className="mr-2 h-4 w-4" /> Reviewer PDF</Button>
-            <Button variant="outline" className="w-full justify-start" onClick={generate}><Download className="mr-2 h-4 w-4" /> Machine JSON</Button>
-            <Button variant="outline" className="w-full justify-start" onClick={generate}><Download className="mr-2 h-4 w-4" /> Audit trail (JSONL)</Button>
+            <Button variant="outline" className="w-full justify-start" onClick={downloadPdf}><Download className="mr-2 h-4 w-4" /> Reviewer PDF</Button>
+            <Button variant="outline" className="w-full justify-start" onClick={downloadJson}><Download className="mr-2 h-4 w-4" /> Machine JSON</Button>
+            <Button variant="outline" className="w-full justify-start" onClick={downloadJsonl}><Download className="mr-2 h-4 w-4" /> Audit trail (JSONL)</Button>
           </div>
           <div className="mt-5 rounded-md border border-border/60 bg-secondary/40 p-3 text-[11px] text-muted-foreground">
             Every packet embeds field-level bounding boxes, extraction confidence, rule citations, and a boundary statement that no eligibility determination has been made.
