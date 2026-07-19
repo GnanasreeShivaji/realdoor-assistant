@@ -3,10 +3,10 @@ import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { HOUSEHOLDS } from "@/lib/mock-data";
-import { useDataMode, UPLOAD_HH_ID, notifyUploadsChanged, loadStoredFiles } from "@/lib/data-mode";
+import { HOUSEHOLDS, type Household, readiness } from "@/lib/mock-data";
+import { useDataMode, UPLOAD_HH_ID, notifyUploadsChanged, loadStoredFiles, getEffectiveHouseholds } from "@/lib/data-mode";
 import { useEffect, useState } from "react";
-import { UploadCloud, FileText, CheckCircle2, AlertTriangle, Loader2, Trash2, Database } from "lucide-react";
+import { UploadCloud, FileText, CheckCircle2, AlertTriangle, Loader2, Trash2, Database, Users, MapPin, Briefcase, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/intake")({
@@ -77,24 +77,98 @@ function extractFields(text: string) {
   return { fields, missing };
 }
 
+function statusTone(status: string) {
+  if (status === "READY FOR REVIEW") return "border-success/40 bg-success/10 text-success";
+  if (status === "NEEDS REVIEW") return "border-warning/40 bg-warning/10 text-warning";
+  return "border-destructive/40 bg-destructive/10 text-destructive";
+}
+
+function statusIcon(status: string) {
+  if (status === "READY FOR REVIEW") return <CheckCircle2 className="h-3.5 w-3.5" />;
+  if (status === "NEEDS REVIEW") return <AlertTriangle className="h-3.5 w-3.5" />;
+  return <AlertTriangle className="h-3.5 w-3.5" />;
+}
+
+function HouseholdCard({
+  hh, selected, onClick,
+}: { hh: Household; selected: boolean; onClick: () => void }) {
+  const r = readiness(hh);
+  const docCount = hh.documents.length;
+  return (
+    <button
+      onClick={onClick}
+      className={`group relative flex w-full flex-col rounded-lg border p-4 text-left transition ${
+        selected
+          ? "border-primary bg-primary/10 ring-1 ring-primary/40"
+          : "border-border/70 bg-secondary/30 hover:border-primary/40 hover:bg-secondary/50"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{hh.id}</div>
+          <div className="mt-0.5 font-display text-base font-semibold text-foreground">{hh.applicant}</div>
+        </div>
+        <Badge variant="outline" className={statusTone(r.status)}>
+          {statusIcon(r.status)}
+          <span className="ml-1">{r.status}</span>
+        </Badge>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <Users className="h-3.5 w-3.5" />
+          <span>Size {hh.size}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <FileText className="h-3.5 w-3.5" />
+          <span>{docCount} doc{docCount === 1 ? "" : "s"}</span>
+        </div>
+        <div className="col-span-2 flex items-center gap-1.5">
+          <MapPin className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{hh.address}</span>
+        </div>
+        <div className="col-span-2 flex items-center gap-1.5">
+          <Briefcase className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{hh.employer}</span>
+        </div>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-success"
+              style={{ width: `${r.score}%` }}
+            />
+          </div>
+          <span className="text-xs font-semibold text-foreground">{r.score}%</span>
+        </div>
+        <ChevronRight className={`h-4 w-4 text-muted-foreground transition ${selected ? "text-primary" : "group-hover:text-foreground"}`} />
+      </div>
+    </button>
+  );
+}
+
 function Intake() {
   const [mode, setMode] = useDataMode();
   const isUploaded = mode === "uploaded";
-  const [selected, setSelected] = useState<string>(isUploaded ? UPLOAD_HH_ID : "HH-001");
+  const visibleHouseholds = getEffectiveHouseholds(mode);
+  const [selected, setSelected] = useState<string>(isUploaded ? UPLOAD_HH_ID : (visibleHouseholds[0]?.id ?? "HH-001"));
   const [uploaded, setUploaded] = useState<ExtractedFile[]>([]);
   const [busy, setBusy] = useState(false);
 
-  // Keep selection in sync with mode.
+  // Keep selection valid when mode changes.
   useEffect(() => {
-    setSelected(isUploaded ? UPLOAD_HH_ID : "HH-001");
-  }, [isUploaded]);
+    const list = getEffectiveHouseholds(mode);
+    setSelected(mode === "uploaded" ? UPLOAD_HH_ID : (list[0]?.id ?? "HH-001"));
+  }, [mode]);
 
   // Rehydrate queue when the target bucket changes.
   useEffect(() => {
     setUploaded(loadStoredFiles(selected));
   }, [selected]);
 
-  const hh = HOUSEHOLDS.find((h) => h.id === selected);
+  const hh = visibleHouseholds.find((h) => h.id === selected);
   const bucketLabel = isUploaded ? `${UPLOAD_HH_ID} · My uploads` : `${selected} · ${hh?.applicant ?? ""}`;
 
   const persist = (list: ExtractedFile[]) => {
@@ -148,10 +222,39 @@ function Intake() {
       title="Document intake"
       description={isUploaded
         ? "Drop real documents to build your own household bucket. Nothing here is shared with the synthetic demo fixtures."
-        : "You are viewing read-only synthetic demo households. Switch the header toggle to 'My uploads' to add real documents."
+        : "You are viewing 6 read-only synthetic demo households. Switch to 'My uploads' to add real documents."
       }
     >
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      {/* Household roster */}
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Household roster</div>
+          <h2 className="font-display text-lg font-semibold">{visibleHouseholds.length} household{visibleHouseholds.length === 1 ? "" : "s"} loaded</h2>
+        </div>
+        <div className="flex items-center gap-2">
+          {isUploaded ? (
+            <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary">Isolated from synthetic data</Badge>
+          ) : (
+            <Button size="sm" variant="outline" onClick={() => setMode("uploaded")} className="gap-1.5">
+              <UploadCloud className="h-3.5 w-3.5" /> Switch to My uploads
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
+        {visibleHouseholds.map((hh) => (
+          <HouseholdCard
+            key={hh.id}
+            hh={hh}
+            selected={selected === hh.id}
+            onClick={() => setSelected(hh.id)}
+          />
+        ))}
+      </div>
+
+      {/* Upload zone for selected household */}
+      <div className="mt-8 grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card className="card-elevated col-span-2 p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div>
@@ -160,11 +263,9 @@ function Intake() {
             </div>
             <div className="flex items-center gap-2">
               {isUploaded ? (
-                <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary">Isolated from synthetic data</Badge>
+                <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary">My uploads bucket</Badge>
               ) : (
-                <Button size="sm" variant="outline" onClick={() => setMode("uploaded")} className="gap-1.5">
-                  <UploadCloud className="h-3.5 w-3.5" /> Switch to My uploads
-                </Button>
+                <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">Read-only fixture</Badge>
               )}
             </div>
           </div>
@@ -175,7 +276,7 @@ function Intake() {
               <div>
                 <div className="font-medium">Read-only synthetic mode</div>
                 <div className="mt-0.5 text-warning/80">
-                  You're browsing HH-001…HH-006 fixtures. Uploads are disabled here to keep synthetic and real data separated. Toggle "My uploads" in the header to add documents.
+                  Uploads are disabled for synthetic households. Select a household above to inspect its fixture documents, or switch to "My uploads" to process real files.
                 </div>
               </div>
             </div>
@@ -239,27 +340,41 @@ function Intake() {
         </Card>
 
         <Card className="card-elevated p-6">
-          <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">What we extract</div>
-          <h2 className="font-display text-lg font-semibold">Field allowlist</h2>
-          <ul className="mt-3 grid grid-cols-2 gap-1.5 text-xs">
-            {FIELD_KEYS.map((f) => (
-              <li key={f} className="rounded border border-border/60 bg-secondary/30 px-2 py-1 font-mono text-[11px] text-muted-foreground">{f}</li>
-            ))}
-          </ul>
+          <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Selected household</div>
+          <h2 className="font-display text-lg font-semibold">{hh ? hh.applicant : "—"}</h2>
+          <div className="mt-3 space-y-2 text-xs text-muted-foreground">
+            {hh ? (
+              <>
+                <div className="flex justify-between">
+                  <span>Household ID</span>
+                  <span className="font-mono text-foreground">{hh.id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Size</span>
+                  <span className="text-foreground">{hh.size} person{hh.size === 1 ? "" : "s"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Documents</span>
+                  <span className="text-foreground">{hh.documents.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Readiness</span>
+                  <span className="text-foreground">{readiness(hh).score}% — {readiness(hh).status}</span>
+                </div>
+                <div className="pt-2 text-[11px] leading-relaxed">{hh.address}</div>
+              </>
+            ) : (
+              <div className="text-muted-foreground">Select a household to view details.</div>
+            )}
+          </div>
 
-          <div className="mt-5 space-y-3 text-sm">
-            <div className="flex gap-2">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
-              <span className="text-muted-foreground">Deterministic regex first, VLM fallback on missing spans.</span>
-            </div>
-            <div className="flex gap-2">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
-              <span className="text-muted-foreground">Every field carries page + bbox evidence.</span>
-            </div>
-            <div className="flex gap-2">
-              <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
-              <span className="text-muted-foreground">Uploads live in the <span className="font-mono text-primary">{UPLOAD_HH_ID}</span> bucket, fully isolated from synthetic fixtures.</span>
-            </div>
+          <div className="mt-6 border-t border-border/60 pt-5">
+            <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">What we extract</div>
+            <ul className="mt-3 grid grid-cols-2 gap-1.5 text-xs">
+              {FIELD_KEYS.map((f) => (
+                <li key={f} className="rounded border border-border/60 bg-secondary/30 px-2 py-1 font-mono text-[11px] text-muted-foreground">{f}</li>
+              ))}
+            </ul>
           </div>
         </Card>
       </div>
