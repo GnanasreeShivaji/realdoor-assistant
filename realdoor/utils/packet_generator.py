@@ -1,160 +1,72 @@
-"""Application packet PDF generator (reportlab)."""
+"""Generate a reviewer-friendly application packet PDF in memory."""
+
 from __future__ import annotations
 
-import io
-from datetime import datetime
+from io import BytesIO
+from datetime import datetime, timezone
 from typing import Any
 
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import LETTER
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak,
-)
+from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 
-PRIMARY = colors.HexColor("#1f4bd8")
-MUTED   = colors.HexColor("#64748b")
-BORDER  = colors.HexColor("#e5e8ef")
-OK      = colors.HexColor("#0f9d58")
-WARN    = colors.HexColor("#b7791f")
+def generate_packet(session_id: str, fields: list[dict[str, Any]], documents: list[dict[str, Any]],
+                    readiness: dict[str, Any], calculation: dict[str, Any] | None = None) -> bytes:
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=.6 * inch, leftMargin=.6 * inch,
+                            topMargin=.55 * inch, bottomMargin=.55 * inch)
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name="Brand", parent=styles["Title"], textColor=colors.HexColor("#173F5F"), fontSize=22))
+    styles.add(ParagraphStyle(name="Notice", parent=styles["BodyText"], backColor=colors.HexColor("#FFF7ED"),
+                              borderColor=colors.HexColor("#F59E0B"), borderWidth=1, borderPadding=8, leading=14))
+    styles.add(ParagraphStyle(name="Footer", parent=styles["BodyText"], alignment=TA_CENTER, textColor=colors.HexColor("#64748B"), fontSize=8))
+    generated = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    story = [Paragraph("RealDoor", styles["Brand"]), Paragraph("Application Readiness Packet", styles["Heading2"]),
+             Paragraph(f"Reference: {session_id} &nbsp;&nbsp; Generated: {generated}", styles["BodyText"]), Spacer(1, 12),
+             Paragraph("REVIEWER NOTICE: This packet organizes submitted documents and transparent calculations. It does not determine eligibility, approval, denial, ranking, or priority.", styles["Notice"]), Spacer(1, 14)]
 
-
-def _styles():
-    ss = getSampleStyleSheet()
-    ss.add(ParagraphStyle("H1", parent=ss["Heading1"], fontSize=20, spaceAfter=6, textColor=colors.HexColor("#0f172a")))
-    ss.add(ParagraphStyle("H2", parent=ss["Heading2"], fontSize=13, spaceBefore=14, spaceAfter=6, textColor=PRIMARY))
-    ss.add(ParagraphStyle("Muted", parent=ss["Normal"], fontSize=9, textColor=MUTED))
-    ss.add(ParagraphStyle("Cell", parent=ss["Normal"], fontSize=9))
-    return ss
-
-
-def _kv_table(rows: list[tuple[str, str]]):
-    data = [[Paragraph(f"<b>{k}</b>", _styles()["Cell"]),
-             Paragraph(v or "—", _styles()["Cell"])] for k, v in rows]
-    t = Table(data, colWidths=[1.8 * inch, 4.7 * inch])
-    t.setStyle(TableStyle([
-        ("LINEBELOW", (0, 0), (-1, -1), 0.4, BORDER),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-    ]))
-    return t
-
-
-def generate(profile: dict, documents: list[dict], checklist: dict,
-             household_id: str, as_of: str) -> bytes:
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buf, pagesize=LETTER,
-        leftMargin=0.7 * inch, rightMargin=0.7 * inch,
-        topMargin=0.7 * inch, bottomMargin=0.7 * inch,
-        title="RealDoor Application Packet",
-    )
-    ss = _styles()
-    story: list[Any] = []
-
-    story.append(Paragraph("RealDoor · Application Packet", ss["H1"]))
-    story.append(Paragraph(
-        f"Household <b>{household_id}</b> &nbsp;·&nbsp; Generated {datetime.now():%B %d, %Y at %I:%M %p} "
-        f"&nbsp;·&nbsp; As-of date {as_of}", ss["Muted"]))
-    story.append(Spacer(1, 10))
-
-    # Readiness box
-    pct = checklist.get("readiness_pct", 0)
-    ready_data = [[
-        Paragraph(f"<font size=22 color='#ffffff'><b>{pct}%</b></font><br/>"
-                  f"<font size=8 color='#dbe4ff'>DOCUMENT READINESS</font>", ss["Normal"]),
-        Paragraph(
-            f"<font size=9 color='#ffffff'>Present: {len(checklist.get('present', []))} · "
-            f"Missing: {len(checklist.get('missing', []))} · "
-            f"Expired: {len(checklist.get('expired', []))}<br/><br/>"
-            "<i>This score measures document completeness only. It does not "
-            "constitute an eligibility determination.</i></font>", ss["Normal"]),
-    ]]
-    rt = Table(ready_data, colWidths=[1.8 * inch, 4.7 * inch])
-    rt.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), PRIMARY),
-        ("BOX", (0, 0), (-1, -1), 0, PRIMARY),
-        ("LEFTPADDING", (0, 0), (-1, -1), 14),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 14),
-        ("TOPPADDING", (0, 0), (-1, -1), 14),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 14),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-    ]))
-    story.append(rt)
-
-    # Profile
-    story.append(Paragraph("Confirmed Profile", ss["H2"]))
-    prof_rows: list[tuple[str, str]] = []
-    for field, obj in profile.items():
-        if isinstance(obj, dict):
-            v = obj.get("value", "")
-            c = obj.get("confidence", 0)
-            src = obj.get("source", "")
-            prof_rows.append((field.replace("_", " ").title(),
-                              f"{v}  <font color='#64748b' size=8>· {int(c*100)}% · {src}</font>"))
-        else:
-            prof_rows.append((field.replace("_", " ").title(), str(obj)))
-    if not prof_rows:
-        prof_rows = [("(none)", "No confirmed fields yet.")]
-    story.append(_kv_table(prof_rows))
-
-    # Documents
-    story.append(Paragraph("Uploaded Documents", ss["H2"]))
-    if documents:
-        head = ["File", "Type", "OCR", "Confidence", "Fields"]
-        rows = [head]
-        for d in documents:
-            rows.append([
-                d.get("filename", "")[:36],
-                d.get("doc_type_label", d.get("doc_type", "")),
-                d.get("ocr_engine", ""),
-                f"{int(d.get('confidence_avg', 0) * 100)}%",
-                str(len(d.get("fields", {}))),
-            ])
-        t = Table(rows, colWidths=[2.4*inch, 1.4*inch, 1.1*inch, 0.9*inch, 0.7*inch])
-        t.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("LINEBELOW", (0, 0), (-1, -1), 0.3, BORDER),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ]))
-        story.append(t)
-    else:
-        story.append(Paragraph("No documents uploaded.", ss["Muted"]))
-
-    # Checklist
-    story.append(Paragraph("Application Checklist", ss["H2"]))
-    check_rows = []
-    for item in checklist.get("items", []):
-        status = item["status"]
-        color = OK if status == "present" else (WARN if status == "expired" else colors.HexColor("#c0392b"))
-        mark = "✓" if status == "present" else ("⚠" if status == "expired" else "✗")
-        check_rows.append([
-            Paragraph(f"<font color='{color.hexval()}'><b>{mark}</b></font>", ss["Cell"]),
-            Paragraph(item["label"], ss["Cell"]),
-            Paragraph(f"<font color='#64748b' size=8>{status.upper()}</font>", ss["Cell"]),
-        ])
-    if check_rows:
-        t = Table(check_rows, colWidths=[0.3 * inch, 4.7 * inch, 1.5 * inch])
-        t.setStyle(TableStyle([
-            ("LINEBELOW", (0, 0), (-1, -1), 0.3, BORDER),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ]))
-        story.append(t)
-
-    story.append(Spacer(1, 18))
-    story.append(Paragraph(
-        "Prepared by RealDoor — Application Readiness Copilot. This packet "
-        "summarizes submitted documents for intake review. It is not a "
-        "compliance determination.", ss["Muted"]))
-
+    story.extend([Paragraph("Confirmed profile", styles["Heading2"])])
+    confirmed = [field for field in fields if field.get("confirmed")]
+    rows = [["Field", "Confirmed value", "Source", "Confidence"]] + [
+        [item["name"].replace("_", " ").title(), str(item.get("value", "")), item.get("source_document", ""), f"{float(item.get('confidence', 0))*100:.0f}%"]
+        for item in confirmed
+    ]
+    if len(rows) == 1:
+        rows.append(["—", "No fields confirmed", "—", "—"])
+    table = Table(rows, colWidths=[1.25*inch, 1.8*inch, 2.25*inch, .75*inch], repeatRows=1)
+    table.setStyle(_table_style())
+    story.extend([table, Spacer(1, 14), Paragraph("Document inventory", styles["Heading2"])])
+    doc_rows = [["Document", "Type", "Status", "Confidence"]] + [[d["file_name"], d["document_type"], d["status"], f"{float(d.get('confidence') or 0)*100:.0f}%"] for d in documents]
+    table = Table(doc_rows, colWidths=[2.55*inch, 1.5*inch, 1.1*inch, .85*inch], repeatRows=1)
+    table.setStyle(_table_style())
+    story.extend([table, Spacer(1, 14), Paragraph(f"Readiness checklist — {readiness['score']}%", styles["Heading2"]),
+                  Paragraph(readiness["disclaimer"], styles["Notice"]), Spacer(1, 8)])
+    check_rows = [["Status", "Item", "Detail"]] + [[item.status.upper(), item.label, item.detail] for item in readiness["items"]]
+    table = Table(check_rows, colWidths=[1.0*inch, 2.1*inch, 3.1*inch], repeatRows=1)
+    table.setStyle(_table_style())
+    story.append(table)
+    if calculation:
+        story.extend([Spacer(1, 14), Paragraph("Calculation ledger", styles["Heading2"]),
+                      Paragraph(str(calculation.get("formula", "No calculation recorded.")), styles["Code"]),
+                      Paragraph(str(calculation.get("citation", "")), styles["BodyText"])])
+    story.extend([Spacer(1, 24), Paragraph("Generated by RealDoor • Human review required", styles["Footer"])])
     doc.build(story)
-    return buf.getvalue()
+    return buffer.getvalue()
+
+
+def _table_style() -> TableStyle:
+    return TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#173F5F")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8), ("LEADING", (0, 0), (-1, -1), 10),
+        ("GRID", (0, 0), (-1, -1), .35, colors.HexColor("#CBD5E1")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6), ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ])
+
