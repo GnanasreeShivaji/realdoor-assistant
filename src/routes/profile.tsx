@@ -144,32 +144,6 @@ function Profile() {
             <div className="mt-3 text-[11px] text-muted-foreground">Comparison shown for context only — never an eligibility decision.</div>
           </Card>
 
-          <Card className="card-elevated p-5">
-            <div className="flex items-center justify-between">
-              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Documents on file</div>
-              {hasUpload && (
-                <button onClick={clearAll} className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground hover:text-destructive transition-colors">Clear all</button>
-              )}
-            </div>
-            <ul className="mt-3 space-y-2 text-sm">
-              {hasUpload ? stored.map((d) => (
-                <li key={d.name} className="flex items-center gap-2 group">
-                  <FileText className="h-3.5 w-3.5 text-primary" />
-                  <span className="flex-1 truncate font-mono text-xs">{d.name}</span>
-                  <Badge variant="outline" className="border-primary/40 bg-primary/10 text-primary h-5 px-1.5 py-0 text-[10px]">{Object.keys(d.fields).length} fields</Badge>
-                  <button onClick={() => removeDoc(d.name)} aria-label={`Remove ${d.name}`} className="text-muted-foreground hover:text-destructive transition-colors">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </li>
-              )) : hh.documents.map((d) => (
-                <li key={d.fileName} className="flex items-center gap-2">
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="flex-1 truncate font-mono text-xs">{d.fileName}</span>
-                  <Badge variant="outline" className={`h-5 px-1.5 py-0 text-[10px] ${d.status === "complete" ? "border-success/40 bg-success/10 text-success" : d.status === "review" ? "border-warning/40 bg-warning/10 text-warning" : "border-destructive/40 bg-destructive/10 text-destructive"}`}>{d.status}</Badge>
-                </li>
-              ))}
-            </ul>
-          </Card>
         </div>
       </div>
     </AppShell>
