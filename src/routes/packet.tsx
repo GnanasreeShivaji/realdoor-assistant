@@ -17,6 +17,7 @@ export const Route = createFileRoute("/packet")({
 
 function Packet() {
   const [selected, setSelected] = useState("HH-001");
+  const [openItem, setOpenItem] = useState<null | { label: string; status: string }>(null);
   const hh = HOUSEHOLDS.find((h) => h.id === selected)!;
   const r = readiness(hh);
 
